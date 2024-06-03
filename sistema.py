@@ -36,7 +36,7 @@ while True:
             print(f'\nDepósito no valor de R$ {valor:.2f} realizado com sucesso.')
     
     # Saque
-    if acao == '2':
+    elif acao == '2':
         
         # Limite de saques diários não atingido
         if saques_realizados_hoje < LIMITE_SAQUES_DIARIOS:
@@ -62,7 +62,7 @@ while True:
             print('\nO limite de 3 saques diários já foi atingido.')
     
     # Extrato
-    if acao == '3':
+    elif acao == '3':
         # Extrato vazio
         if extrato == f"{' EXTRATO '.center(20, '-')}\n\n":
             print(extrato + 'Não foram realizadas movimentações.')
@@ -71,8 +71,12 @@ while True:
             print(extrato + f"\nSaldo atual: R$ {saldo:.2f}")
 
     # Fim da operação
-    if acao == '0':
+    elif acao == '0':
         print('\nObrigado por utilizar os nossos serviços!')
         break
 
+    else:
+        print('Opção inválida. Selecione uma das opções apresentadas.')
+        continue
+    
     print('\nPodemos lhe ajudar com algo mais?')
