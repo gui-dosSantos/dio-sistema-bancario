@@ -1,7 +1,6 @@
 from datetime import datetime, date
 from abc import ABC, abstractmethod
 
-MAX_TENTATIVAS = 3
 LIMITE_SAQUE = 500.00
 LIMITE_SAQUES_DIARIOS = 3
 
