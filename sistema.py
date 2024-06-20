@@ -40,13 +40,7 @@ LIMITE_SAQUE = 500.00
 LIMITE_SAQUES_DIARIOS = 3
 
 # Formata e imprime o extrato
-def exibir_extrato(saldo, /, *, extrato):
-    print(f"{' EXTRATO '.center(30, '=')}\n")
-    print(f'{extrato}')
-    print(f'Saldo: R$ {saldo:.2f}\n')
-    print(''.center(30, '='))
-
-def novo_exibir_extrato(saldo: float, /, *, agencia: str, numero: int, titular: str, historico: Historico):
+def exibir_extrato(saldo: float, /, *, agencia: str, numero: int, titular: str, historico: Historico):
     print(f'Agencia: {agencia}')
     print(f'Número da conta: {numero}')
     print(f'Titular: {titular}')
@@ -795,8 +789,8 @@ Bem vindo(a) ao Banco X!
     print('\nObrigado por utilizar os nossos serviços!\n')
    
 # iniciar_atendimento()
-class teste:
-    def __init__(self) -> None:
-        self.transacoes = [{'tipo': 'Saque', 'valor': 99.9, 'data': datetime.now()}, {'tipo': 'Deposito', 'valor': 299.9, 'data': datetime.now()}]
+# class teste:
+#     def __init__(self) -> None:
+#         self.transacoes = [{'tipo': 'Saque', 'valor': 99.9, 'data': datetime.now()}, {'tipo': 'Deposito', 'valor': 299.9, 'data': datetime.now()}]
 
-novo_exibir_extrato(100.0, agencia='1', numero=1, titular='tonico', historico=teste())
+# exibir_extrato(100.0, agencia='1', numero=1, titular='tonico', historico=teste())
