@@ -12,6 +12,7 @@ class Conta:
         self._agencia = '0001'
         self._cliente = cliente
         self._historico = Historico()
+        self._ativa = True
     
     @property
     def saldo(self):
@@ -36,6 +37,9 @@ class Conta:
     @classmethod
     def nova_conta(cls, cliente, numero: int):
         return cls(numero=numero, cliente=cliente)
+    
+    def desativar_conta(self):
+        self._ativa = False
     
     # Tentativas, registros e formatos de input devem ser tratados no sistema
     def sacar(self, valor: float) -> bool:
@@ -142,9 +146,13 @@ class Cliente:
     def __init__(self, endereco: str) -> None:
         self.endereco = endereco
         self.contas = []
+        self.ativo = True
 
     def adicionar_conta(self, conta: Conta):
         self.contas.append(conta)
+
+    def desativar_conta_cliente(self):
+        self.ativo = False
 
     def realizar_transacao(self, conta: Conta, transacao: Transacao):
         transacao.registrar(conta)
