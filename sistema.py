@@ -1,4 +1,5 @@
 from datetime import datetime
+from classes import Conta, ContaCorrente, Deposito, Saque, Historico, Cliente, PessoaFisica
 
 MENU = f'''
 {' MENU '.center(20, '-')}
@@ -44,6 +45,17 @@ def exibir_extrato(saldo, /, *, extrato):
     print(f'{extrato}')
     print(f'Saldo: R$ {saldo:.2f}\n')
     print(''.center(30, '='))
+
+def novo_exibir_extrato(saldo: float, /, *, agencia: str, numero: int, titular: str, historico: Historico):
+    print(f'Agencia: {agencia}')
+    print(f'Número da conta: {numero}')
+    print(f'Titular: {titular}')
+    print(f"{' EXTRATO '.center(60, '=')}\n")
+    for entrada in historico.transacoes:
+        print(f'{entrada['data'].strftime('%d-%m-%Y %H:%M:%S')} {entrada['tipo']}: R$ {entrada['valor']:.2f}')
+    print()
+    print(f'Saldo: R$ {saldo:.2f}\n')
+    print(''.center(60, '='))
 
 # Função de depósito
 def depositar(conta, /):
@@ -782,4 +794,9 @@ Bem vindo(a) ao Banco X!
     
     print('\nObrigado por utilizar os nossos serviços!\n')
    
-iniciar_atendimento()
+# iniciar_atendimento()
+class teste:
+    def __init__(self) -> None:
+        self.transacoes = [{'tipo': 'Saque', 'valor': 99.9, 'data': datetime.now()}, {'tipo': 'Deposito', 'valor': 299.9, 'data': datetime.now()}]
+
+novo_exibir_extrato(100.0, agencia='1', numero=1, titular='tonico', historico=teste())
