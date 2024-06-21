@@ -175,3 +175,16 @@ class PessoaFisica(Cliente):
     def data_nascimento(self):
         return self._data_nascimento
 
+class PessoaJuridica(Cliente):
+    def __init__(self, *, endereco: str, cnpj: str, nome: str) -> None:
+        super().__init__(endereco)
+        self._cnpj = cnpj
+        self._nome = nome
+    
+    @property
+    def cnpj(self):
+        return self._cnpj
+    
+    @property
+    def nome(self):
+        return self._nome
