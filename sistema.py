@@ -806,7 +806,9 @@ def atendimento_pessoa_juridica():
         if verificar_cnpj(cnpj):
             gerenciar_contas(cnpj)
         else: 
-            cadastrar_usuario_cnpj(cnpj)
+            # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            # cadastrar_usuario_cnpj(cnpj)
+            pass
     
     print('\nObrigado por utilizar os nossos serviços!')
     print(f'\n{''.center(100, 'X')}')
