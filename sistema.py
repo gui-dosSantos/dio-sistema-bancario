@@ -1,5 +1,5 @@
-from datetime import datetime
-from classes import Conta, ContaCorrente, Deposito, Saque, Historico, Cliente, PessoaFisica
+from datetime import datetime, date
+from classes import Conta, ContaCorrente, Deposito, Saque, Historico, Cliente, PessoaFisica, PessoaJuridica
 
 MENU = f'''
 {' MENU '.center(20, '-')}
@@ -112,7 +112,7 @@ def saque_final(*, conta):
     print(f'\nSaque final no valor de R$ {valor:.2f} efetuado com sucesso.')
 
 # Lida com a criação de um novo usuário que será posteriormente adicionado a lista de usuários do banco
-def criar_usuario(cpf):
+def criar_usuario_pf(cpf):
     nome = input('Insira o seu nome: ')
     data_nascimento = solicitar_data_nascimento()
     # Retorna None caso o usuário tenha inserido a data de nascimento no formato errado 3 vezes
@@ -130,30 +130,19 @@ def criar_usuario(cpf):
         return None
     # Formatação do endereço
     endereco = " - ".join([logradouro + f', {numero}', bairro, cidade]) + f'/{estado}'          
-    ativo = True
-    # Novo Usuário criado como um dicionário
-    novo_usuario = {                                                                            
-        'nome': nome,
-        'data_nascimento': data_nascimento,
-        'cpf': cpf,
-        'endereco': endereco,
-        'ativo': ativo,
-    }
+    # Novo Usuário criado como uma instância de PessoaFisica
+    novo_usuario = PessoaFisica(endereco=endereco, cpf=cpf, nome=nome, data_nascimento=data_nascimento)
     return novo_usuario
 
 # Solicita o cpf e verifica se foi inserido no formato correto
 def solicitar_cpf():
-    tentativas = 0
     global MAX_TENTATIVAS
-    while MAX_TENTATIVAS > tentativas:
-        cpf = input('Insira seu número de cpf(somente os números) ou digite "sair" para encerra a sessão: ')
-        # Acesso ao menu de gerenciamento do banco, que permite exclusão permanente de usuários e contas corrente desativados, bem como a reinicialização dos saques diários
-        # de contas individuais ou de todas
-        if cpf == 'adm':
-            return 'adm'
+    tentativas = 0
+    while tentativas < MAX_TENTATIVAS:
+        cpf = input('Insira seu número de CPF(somente os números) ou digite "sair" para encerra a sessão: ')
         # Input para encerra a execução do programa
-        elif cpf == 'sair':
-            return 'sair'
+        if cpf == 'sair':
+            break
         elif len(cpf) == 11:
             try:
                 int(cpf)
@@ -165,14 +154,49 @@ def solicitar_cpf():
         tentativas += 1
         print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}\n')
     
-    return 'tentativas excedidas'
+    if tentativas >= MAX_TENTATIVAS:
+        print('Número máximo de tentativas excedido.')
+    return 'sair'
+
+# Solicita o cnpj e verifica se foi inserido no formato correto
+def solicitar_cnpj():
+    global MAX_TENTATIVAS
+    tentativas = 0
+    while tentativas < MAX_TENTATIVAS:
+        cnpj = input('Insira seu número de CNPJ(somente os números) ou digite "sair" para encerra a sessão: ')
+        if cnpj == 'sair':
+            break
+        elif len(cnpj) == 14:
+            try:
+                int(cnpj)
+                return cnpj
+            except ValueError:
+                print('\nCNPJ inválido. Insira somente os números do seu CNPJ.')
+        else:
+            print('\nCNPJ inválido. O valor inserido deve conter 14 dígitos.')
+        tentativas += 1
+        print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}\n')
+    
+    if tentativas >= MAX_TENTATIVAS:
+        print('Número máximo de tentativas excedido.')
+    return 'sair'
 
 # Verifica se o cpf informado já está presente na lista de usuários
 def verificar_cpf(cpf):
     for cliente in usuarios:
-        if cliente.get('cpf') == cpf:
-            return True
+        if isinstance(cliente, PessoaFisica):
+            if cliente.cpf == cpf:
+                return True
     
+    return False
+
+# Verifica se o cnpj informado já está presente na lista de usuários
+def verificar_cnpj(cnpj):
+    for cliente in usuarios:
+        if isinstance(cliente, PessoaJuridica):
+            if cliente.cnpj == cnpj:
+                return True
+        
     return False
 
 # Solicita a data de nascimento e verifica se foi inserida no formato correto
@@ -186,10 +210,10 @@ def solicitar_data_nascimento():
         data_nascimento = input('Insira sua data de nascimento no formato dd/mm/aaaa: ')
         # Testa o formato da data
         try:
-            bool(datetime.strptime(data_nascimento, FORMATO))                                   
+            data_nascimento = datetime.strptime(data_nascimento, FORMATO).date()                                   
             return data_nascimento
         except ValueError:
-            print('Data inválida, por favor insira sua data de nascimento no formato descrito.')
+            print('Data inválida, por favor insira sua data de nascimento no formato descrito.\n')
         tentativas += 1
         print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
     return 'tentativas excedidas'
@@ -410,13 +434,12 @@ def cadastrar_usuario(cpf):
 [0] Sair
 '''
     print("\nVerificamos que o CPF informado não está cadastrado no nosso banco de dados de clientes. Gostaria de se cadastrar?")
-    
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         print(MENU_CADASTRO_CLIENTE)
         opcao = input('Escolha uma das opções: ')
         if opcao == '1':
-            novo_usuario = criar_usuario(cpf)
+            novo_usuario = criar_usuario_pf(cpf)
             # Se alguma das etapas da criação do novo usuário falhar por número máximo de tentativas excedido, o atendimento é terminado
             if novo_usuario == None:    
                 tentativas = MAX_TENTATIVAS
@@ -759,36 +782,74 @@ def gerenciamento_institucional():
         # Input que não corresponde a nenhuma das opções disponíveis inserido 3 vezes seguidas
         if tentativas >= MAX_TENTATIVAS:
             print('Número máximo de tentativas excedido.')
-        
 
+# Atendimento de pessoas físicas 
+def atendimento_pessoa_fisica():
+    cpf = solicitar_cpf()
+    # Se o cpf for informado no formato correto
+    if cpf != 'sair':
+        # Verifica se o cpf já está cadastrado
+        if verificar_cpf(cpf):
+            # Vai para o menu de gerenciamento de contas
+            gerenciar_contas(cpf)
+        else:
+            # Cadastra o usuário
+            cadastrar_usuario(cpf)
+    
+    print('\nObrigado por utilizar os nossos serviços!')
+    print(f'\n{''.center(100, 'X')}')
+
+# Atendimento de pessoas jurídicas
+def atendimento_pessoa_juridica():
+    cnpj = solicitar_cnpj()
+    if cnpj != 'sair':
+        if verificar_cnpj(cnpj):
+            gerenciar_contas(cnpj)
+        else: 
+            cadastrar_usuario_cnpj(cnpj)
+    
+    print('\nObrigado por utilizar os nossos serviços!')
+    print(f'\n{''.center(100, 'X')}')
 
 # Inicio do programa
 def iniciar_atendimento():
+    global MAX_TENTATIVAS
     MENSAGEM_INICIAL = '''
 Bem vindo(a) ao Banco X!
+    
+[1] Pessoa Física
+[2] Pessoa Jurídica
+[0] Sair
 '''
-    while True:
+    tentativas = 0
+    while tentativas < MAX_TENTATIVAS:
         print(MENSAGEM_INICIAL)
-        cpf = solicitar_cpf()
+        opcao = input('Escolha uma das opções: ')
+        if opcao == '1':
+            tentativas = 0
+            atendimento_pessoa_fisica()
+            pass
+        elif opcao == '2':
+            tentativas = 0
+            # atendimento_pessoa_juridica()
+            pass
+        elif opcao == '0':
+            break
         # Acesso ao menu de gerenciamento do banco, que permite exclusão permanente de usuários e contas corrente desativados, bem como a reinicialização dos saques diários
         # de contas individuais ou de todas
-        if cpf == 'adm':
+        elif opcao == '99':
+            tentativas = 0
             gerenciamento_institucional()
-        # Input para terminar a execução
-        elif cpf == 'sair':
-            break
-        elif cpf == 'tentativas excedidas':
-            print('Número máximo de tentativas excedido.')
-            break
         else:
-            if verificar_cpf(cpf):
-                gerenciar_contas(cpf)
-            else:
-                cadastrar_usuario(cpf)
-    
+            tentativas += 1
+            print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+
+    if tentativas >= MAX_TENTATIVAS:
+        print('Número máximo de tentativas excedido.')
     print('\nObrigado por utilizar os nossos serviços!\n')
    
-# iniciar_atendimento()
+iniciar_atendimento()
+
 # class teste:
 #     def __init__(self) -> None:
 #         self.transacoes = [{'tipo': 'Saque', 'valor': 99.9, 'data': datetime.now()}, {'tipo': 'Deposito', 'valor': 299.9, 'data': datetime.now()}]

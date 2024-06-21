@@ -174,6 +174,9 @@ class PessoaFisica(Cliente):
     @property
     def data_nascimento(self):
         return self._data_nascimento
+    
+    def __str__(self):
+        return f'Nome: {self.nome} - CPF: {self.cpf}\nEndereço: {self.endereco}\nData de Nascimento: {self.data_nascimento.strftime('%d/%m/%Y')}'
 
 class PessoaJuridica(Cliente):
     def __init__(self, *, endereco: str, cnpj: str, nome: str) -> None:
@@ -188,3 +191,6 @@ class PessoaJuridica(Cliente):
     @property
     def nome(self):
         return self._nome
+    
+    def __str__(self):
+        return f'Nome: {self.nome} - CNPJ: {self.cnpj}\nEndereço: {self.endereco}'
