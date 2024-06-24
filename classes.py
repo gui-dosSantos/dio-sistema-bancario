@@ -33,6 +33,10 @@ class Conta:
     def historico(self):
         return self._historico
     
+    @property
+    def ativa(self):
+        return self._ativa
+    
     @classmethod
     def nova_conta(cls, cliente, numero: int):
         return cls(numero=numero, cliente=cliente)
@@ -144,8 +148,8 @@ class Historico:
 class Cliente:
     def __init__(self, endereco: str) -> None:
         self.endereco = endereco
-        self.contas = []
-        self.ativo = True
+        self.contas: list[Conta] = []
+        self.ativo: bool = True
 
     def adicionar_conta(self, conta: Conta):
         self.contas.append(conta)
