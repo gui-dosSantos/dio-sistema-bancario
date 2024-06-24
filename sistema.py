@@ -10,31 +10,8 @@ MENU = f'''
 [0] Sair
 
 '''
-usuarios = [
-    {'nome': 'Teste', 'data_nascimento': '01/01/1900', 'cpf': '00000000000', 'endereco': 'Rua Teste, 0 - Bairro - Cidade/ES', 'ativo': True},
-    {'nome': 'Teste A', 'data_nascimento': '01/01/2001', 'cpf': '11111111111', 'endereco': 'Rua A, 1 - Bairro A - Cidade A/AM', 'ativo': True},
-    {'nome': 'Teste B', 'data_nascimento': '02/02/2002', 'cpf': '22222222222', 'endereco': 'Rua B, 2 - Bairro B - Cidade B/BA', 'ativo': False},
-    {'nome': 'Teste C', 'data_nascimento': '03/03/2003', 'cpf': '33333333333', 'endereco': 'Rua C, 3 - BAirro C - Cidade C/CE', 'ativo': False},
-    {'nome': 'Teste D', 'data_nascimento': '04/04/2004', 'cpf': '44444444444', 'endereco': 'Rua D, 4 - Bairro D - Cidade D/PE', 'ativo': False},
-    {'nome': 'TESTE E', 'data_nascimento': '05/05/2005', 'cpf': '55555555555', 'endereco': 'RUA E, 5 - Bairro E - CIdade E/ES', 'ativo': False}
-]
-contas = [
-    {'agencia': '0001', 'numero_conta': 1, 'cpf': '00000000000', 'saldo': 480.0, 'extrato': 'Depósito: R$ 500.00\nSaque: R$ 20.00\n', 'saques_hoje': 1, 'ativa': True},
-    {'agencia': '0001', 'numero_conta': 2, 'cpf': '00000000000', 'saldo': 0.0, 'extrato': '', 'saques_hoje': 0, 'ativa': False},
-    {'agencia': '0001', 'numero_conta': 3, 'cpf': '00000000000', 'saldo': 0.0, 'extrato': '', 'saques_hoje': 0, 'ativa': False},
-    {'agencia': '0001', 'numero_conta': 4, 'cpf': '00000000000', 'saldo': 0.0, 'extrato': '', 'saques_hoje': 0, 'ativa': False},
-    {'agencia': '0001', 'numero_conta': 5, 'cpf': '11111111111', 'saldo': 0.0, 'extrato': '', 'saques_hoje': 0, 'ativa': False},
-    {'agencia': '0001', 'numero_conta': 6, 'cpf': '11111111111', 'saldo': 90.0, 'extrato': 'Depósito: R$ 200.00\nSaque: R$ 30.00\nSaque: R$ 70.00\nSaque: R$ 10.00\n', 'saques_hoje': 3, 'ativa': True},
-    {'agencia': '0001', 'numero_conta': 7, 'cpf': '11111111111', 'saldo': 0.0, 'extrato': 'Depósito: R$ 1000.00\nSaque: R$ 320.00\nSaque final: R$ 680.00\n', 'saques_hoje': 1, 'ativa': False},
-    {'agencia': '0001', 'numero_conta': 8, 'cpf': '11111111111', 'saldo': 0.0, 'extrato': '', 'saques_hoje': 0, 'ativa': False},
-    {'agencia': '0001', 'numero_conta': 9, 'cpf': '22222222222', 'saldo': 0.0, 'extrato': '', 'saques_hoje': 0, 'ativa': False},
-    {'agencia': '0001', 'numero_conta': 10, 'cpf': '22222222222', 'saldo': 0.0, 'extrato': '', 'saques_hoje': 0, 'ativa': False},
-    {'agencia': '0001', 'numero_conta': 11, 'cpf': '22222222222', 'saldo': 0.0, 'extrato': '', 'saques_hoje': 0, 'ativa': False},
-    {'agencia': '0001', 'numero_conta': 12, 'cpf': '33333333333', 'saldo': 0.0, 'extrato': '', 'saques_hoje': 0, 'ativa': False},
-    {'agencia': '0001', 'numero_conta': 13, 'cpf': '33333333333', 'saldo': 0.0, 'extrato': '', 'saques_hoje': 0, 'ativa': False},
-    {'agencia': '0001', 'numero_conta': 14, 'cpf': '33333333333', 'saldo': 0.0, 'extrato': '', 'saques_hoje': 0, 'ativa': False},
-    {'agencia': '0001', 'numero_conta': 15, 'cpf': '33333333333', 'saldo': 0.0, 'extrato': '', 'saques_hoje': 0, 'ativa': False}
-]
+usuarios = []
+contas = []
 MAX_TENTATIVAS = 3
 LIMITE_SAQUE = 500.00
 LIMITE_SAQUES_DIARIOS = 3
@@ -310,31 +287,19 @@ def excluir_todos_usuarios_desativados():
             del usuarios[i]
 
 # Cria uma nova conta corrente associada a um usuário já existente
-def criar_conta_corrente(cpf):
-    agencia = '0001'
+def criar_conta_corrente(cliente):
     # Optei por determinar o número da nova conta baseado no número da última conta da lista ao invés do tamanho da lista(que diminuiria em caso de exclusão de uma conta,
     # levando a criação de contas com o mesmo número)
-    numero_conta = 1 if len(contas) == 0 else contas[-1]['numero_conta'] + 1
-    saldo = 0.0
-    extrato = ''
-    saques_hoje = 0
-    ativa = True
-    nova_conta = {
-        'agencia': agencia,
-        'numero_conta': numero_conta,
-        'cpf': cpf,
-        'saldo': saldo,
-        'extrato': extrato,
-        'saques_hoje': saques_hoje,
-        'ativa': ativa,
-    }
+    numero_conta = 1 if len(contas) == 0 else contas[-1].numero + 1
+    nova_conta = ContaCorrente(numero=numero_conta, cliente=cliente)
     return nova_conta
 
 # Lida com o registro de novas contas corrente
-def registrar_nova_conta(cpf):
-    nova_conta = criar_conta_corrente(cpf)
+def registrar_nova_conta(cliente):
+    nova_conta = criar_conta_corrente(cliente)
     contas.append(nova_conta)
-    print(f'\nNova conta corrente criada: Agência: {nova_conta['agencia']}, Conta: {nova_conta['numero_conta']}')
+    cliente.contas.append(nova_conta)
+    print(f'\nNova conta corrente criada: Agência: {nova_conta.agencia}, Conta: {nova_conta.numero}')
 
 # Lida com a desativação de contas, que é zerada caso ainda possua saldo
 def desativar_conta(*, agencia, numero_conta, lista_contas_usuario):
@@ -347,12 +312,11 @@ def desativar_conta(*, agencia, numero_conta, lista_contas_usuario):
     print('\nAgência ou número da conta não correspondem às contas vinculadas a este usuário.')
     return 'conta nao encontrada'
 
-# Encontra todas as contas vinculadas a um CPF as retorna em uma lista
-def encontrar_contas(cpf):
+# Encontra todas as contas ativas de um cliente as retorna em uma lista
+def encontrar_contas_ativas(contas: list[Conta]) -> list[Conta]:
     lista_contas_usuario = []
-
     for conta in contas:
-        if conta['cpf'] == cpf and conta['ativa']:
+        if conta.ativa:
             lista_contas_usuario.append(conta)
     
     return lista_contas_usuario
@@ -368,7 +332,7 @@ def encontrar_uma_conta(*, agencia, numero_conta):
 def listar_contas(contas_usuario):
     res = ''
     for conta in contas_usuario:
-        res += f'Agência: {conta['agencia']}, Conta: {conta['numero_conta']}\n'
+        res += f'Agência: {conta.agencia}, Conta: {conta.numero}\n'
     return res
 
 # Reseta o contador de saques diário de todas as contas
@@ -448,7 +412,7 @@ def cadastrar_usuario(cpf):
             else:
                 usuarios.append(novo_usuario)
                 print('\nCadastro realizado com sucesso. Obrigado por se tornar nosso cliente!')
-                gerenciar_contas(cpf)
+                gerenciar_contas(novo_usuario)
                 break
         # Se o usuário optar por sair, o atendimento é terminado sem as mensagens de "Tentativas Restantes" ou "Tentativas excedidas" serem exibidas
         elif opcao == '0':
@@ -529,11 +493,11 @@ Saldo: R$ {conta_escolhida['saldo']:.2f}
         return 'operacao bem sucedida'
 
 # Função responsável pelas opções do menu de gerenciamento de contas, ou seja, criação, movimentação e desativação de contas corrente e desativação de usuário
-def gerenciar_contas(cpf):
+def gerenciar_contas(cliente):
     global MAX_TENTATIVAS
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
-        contas_usuario = encontrar_contas(cpf)
+        contas_usuario = encontrar_contas_ativas(cliente.contas)
         contas_formatadas = listar_contas(contas_usuario)
         possui_contas = len(contas_usuario) != 0
         MENU_CONTAS = f'''
@@ -547,7 +511,7 @@ def gerenciar_contas(cpf):
         opcao = input('Escolha uma das opções: ')
         # Abrir nova conta corrente
         if opcao == '1':
-            registrar_nova_conta(cpf)
+            registrar_nova_conta(cliente)
             tentativas = 0
             print('\nComo mais podemos ajudá-lo?')
         # Movimentar conta corrente
@@ -579,7 +543,7 @@ def gerenciar_contas(cpf):
         # Desativar Usuário
         elif opcao == '4':
             if not possui_contas:
-                desativar_usuario(cpf)
+                desativar_usuario(cliente)
                 print('\nLamentamos que esteja de saída.')
                 break
             else:
