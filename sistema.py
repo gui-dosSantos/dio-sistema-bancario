@@ -18,7 +18,7 @@ LIMITE_SAQUES_DIARIOS = 3
 
 # Formata e imprime o extrato
 def exibir_extrato(saldo: float, /, *, agencia: str, numero: int, titular: str, historico: Historico):
-    print(f'Agencia: {agencia}')
+    print(f'\nAgencia: {agencia}')
     print(f'Número da conta: {numero}')
     print(f'Titular: {titular}')
     print(f"{' EXTRATO '.center(60, '=')}\n")
@@ -29,57 +29,54 @@ def exibir_extrato(saldo: float, /, *, agencia: str, numero: int, titular: str, 
     print(''.center(60, '='))
 
 # Função de depósito
-def depositar(conta, /):
+def gerenciar_tentativas_deposito(conta, /):
     global MAX_TENTATIVAS
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         # bloco para receber o input do usuário, atendendo aos requerimentos de um depósito, onde o valor inserido deve ser numérico e maior que 0
         try:
-            valor = float(input('Insira o valor a ser depositado: '))
-            if valor <= 0:
-                # desvia a execução para o except para tratar o caso de um input não permitido
-                raise ValueError('Depósito menor ou igual a 0')
-            conta['saldo'] += round(valor, 2)
-            conta['extrato'] += f'Depósito: R$ {valor:.2f}\n'
-            print(f'\nDepósito no valor de R$ {valor:.2f} efetuado com sucesso.')
-            return 'deposito efetuado'
-        except ValueError:
+            valor = float(input('Insira o valor a ser depositado ou 0 para abortar a operação: '))
+            if valor == 0:
+                return True
+            deposito_bem_sucedido = conta.depositar(valor)
+            # Cria a transação e faz o registro
+            if deposito_bem_sucedido:
+                deposito = Deposito(valor)
+                deposito.registrar(conta)
+                return True
+            else:
+                raise ValueError('Deposito falhou')
+        except ValueError as err:
             tentativas += 1
+            if err.args[0] != 'Deposito falhou':
+                print('\nInsira um valor numérico maior que 0.')
             print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-            print('\nInsira um valor numérico maior que 0.')
-    return 'tentativas excedidas'
+    return False
 
 # Função de saque
-def sacar(*, conta):
+def gerenciar_tentativas_saque(*, conta):
     global MAX_TENTATIVAS, LIMITE_SAQUE
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         # bloco para receber o input do usuário, atendendo aos requerimentos de um saque, onde o valor inserido deve ser numérico, maior que 0 e menor que o saldo da conta
         try:
-            valor = float(input('Insira o valor a ser sacado: '))
-            # desvia a execução para o except para tratar o caso de um input não permitido
-            if valor <= 0:
-                raise ValueError('Menor que 0')
-            elif valor > conta['saldo']:
-                raise ValueError('Valor maior que o saldo')
-            elif valor > LIMITE_SAQUE:
-                raise ValueError('Valor maior que o limite')
-            conta['saldo'] -= round(valor, 2)
-            conta['extrato'] += f'Saque: R$ {valor:.2f}\n'
-            conta['saques_hoje'] += 1
-            print(f'\nSaque no valor de R$ {valor:.2f} efetuado com sucesso.')
-            return 'saque efetuado'
+            valor = float(input('Insira o valor a ser sacado ou 0 para abortar a operação: '))
+            if valor == 0:
+                return True
+            saque_bem_sucedido = conta.sacar(valor)
+            # Cria a transação e faz o registro
+            if saque_bem_sucedido:
+                saque = Saque(valor)
+                saque.registrar(conta)
+                return True
+            else:
+                raise ValueError('Saque falhou')
         except ValueError as err:
             tentativas += 1
-            print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-            # Exibe ao usuário mensagens diferentes de acordo com o tipo de erro ocorrido
-            if err.args[0] == 'Valor maior que o saldo':
-                print('\nSaldo Insuficiente.')
-            elif err.args[0] == 'Valor maior que o limite':
-                print(f'\nO valor limite para saques é de R$ {LIMITE_SAQUE:.2f}.')
-            else:
+            if err.args[0] != 'Saque falhou':
                 print('\nInsira um valor numérico maior que 0.')
-    return 'tentativas excedidas'
+            print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+    return False
 
 # Efetua um saque igual a todo o valor do saldo. Exclusivo para contas que estão sendo desativadas
 def saque_final(*, conta):
@@ -240,11 +237,31 @@ def solicitar_sigla_estado():
     
     return 'tentativas excedidas'
 
-# Transforma um usuário cadastrado em inativo, o que é um requerimento para que seja excluído
-def desativar_usuario(cpf):
-    for usuario in usuarios:
-        if usuario['cpf'] == cpf:
-            usuario['ativo'] = False
+# Reativar usuário inativo
+def reativacao_cliente(cliente):
+    print('\nDetectamos a existência de um usuário inativo registrado neste CPF.')
+    MENSAGEM_ATIVACAO = '''Gostaria de reativar sua conta de usuário?
+    
+    [1] Sim
+    [0] Não
+    '''
+    tentativas = 0
+    while tentativas < MAX_TENTATIVAS:
+        print(MENSAGEM_ATIVACAO)
+        opcao = input('Escolha uma das opções: ')
+        if opcao == '1':
+            cliente.ativo = True
+            return True
+        elif opcao == '2':
+            break
+        else:
+            tentativas += 1
+            print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+    
+    if tentativas >= MAX_TENTATIVAS:
+            print('Número máximo de tentativas excedido.')
+    return False
+
 
 # Verifica se há usuarios desativados
 def verificar_usuarios_desativados():
@@ -322,10 +339,11 @@ def encontrar_contas_ativas(contas: list[Conta]) -> list[Conta]:
     return lista_contas_usuario
 
 # Encontra e retorna uma conta de acordo com o numero da agencia e o numero da conta
-def encontrar_uma_conta(*, agencia, numero_conta):
-    for conta in contas:
-        if conta['agencia'] == agencia and str(conta['numero_conta']) == numero_conta:
+def encontrar_uma_conta(*, agencia, numero_conta, lista_contas = contas):
+    for conta in lista_contas:
+        if conta.agencia == agencia and str(conta.numero) == numero_conta:
             return conta
+    print('\nAgência ou número da conta não correspondem às contas vinculadas a este usuário.')
     return 'conta nao encontrada'
 
 # Pega uma lista de contas e formata em uma string
@@ -425,72 +443,62 @@ def cadastrar_usuario(cpf):
         print('Número máximo de tentativas excedido.')
 
 # Função responsável pelas opções do menu de movimentação de contas, ou seja, saques, depósitos e impressão de extratos
-def movimentar_contas(*, agencia, numero_conta, lista_contas_usuario):
+def movimentar_contas(*, conta_escolhida):
     global MAX_TENTATIVAS, LIMITE_SAQUES_DIARIOS
-    conta_escolhida = {}
-    # Encontra a conta selecionada
-    for conta in lista_contas_usuario:
-        if conta['agencia'] == agencia and str(conta['numero_conta']) == numero_conta:
-            conta_escolhida = conta
-    # Se nenhuma conta com os parâmetros passados for encontrada, retorna a função
-    if len(conta_escolhida) == 0:
-        print('\nAgência ou número da conta não correspondem às contas vinculadas a este usuário.')
-        return 'conta nao encontrada'
-    else:
-        tentativas = 0
-        while tentativas < MAX_TENTATIVAS:
-            MENU_OPERACOES = f'''
-Agencia: {conta_escolhida['agencia']} Conta: {conta_escolhida['numero_conta']}
-Saldo: R$ {conta_escolhida['saldo']:.2f}
+    tentativas = 0
+    while tentativas < MAX_TENTATIVAS:
+        MENU_OPERACOES = f'''
+Agencia: {conta_escolhida.agencia} Conta: {conta_escolhida.numero}
+Saldo: R$ {conta_escolhida.saldo:.2f}
 
-[1] Saque {'- INDISPONÍVEL' if conta_escolhida['saldo'] <= 0 or conta_escolhida['saques_hoje'] >= LIMITE_SAQUES_DIARIOS else ''}
+[1] Saque {'- INDISPONÍVEL' if conta_escolhida.saldo <= 0 or conta_escolhida.saques_hoje >= conta_escolhida.limite_saques else ''}
 [2] Depósito
 [3] Extrato
 [0] Sair
 '''
-            print(MENU_OPERACOES)
-            opcao = input('Escolha uma das opções: ')
-            # Efetuar saque
-            if opcao == '1':
-                # Não permite mais de 3 saques por dia
-                if conta_escolhida['saques_hoje'] >= LIMITE_SAQUES_DIARIOS:
-                    print('\nLimite de 3 saques diários atingido, operação não efetuada.')
-                    tentativas += 1
-                    print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                # Não permite efetuar saques em contas sem saldo
-                elif conta_escolhida['saldo'] <= 0:
-                    print('\nSaldo insuficiente.')
-                    tentativas += 1
-                    print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                else:
-                    res = sacar(conta=conta_escolhida)
-                    if res == 'tentativas excedidas':
-                        return 'tentativas excedidas'
-                    elif res == 'saque efetuado':
-                        tentativas = 0
-
-            # Efetuar depósito
-            elif opcao == '2':
-                res = depositar(conta_escolhida)
-                if res == 'tentativas excedidas':
-                    return 'tentativas excedidas'
-                elif res == 'deposito efetuado':
-                    tentativas = 0
-            # Imprimir extrato
-            elif opcao == '3':
-                exibir_extrato(conta_escolhida['saldo'], extrato=conta_escolhida['extrato'])
-                tentativas = 0
-            # SAIR
-            elif opcao == '0':
-                break
-            else:
+        print(MENU_OPERACOES)
+        opcao = input('Escolha uma das opções: ')
+        # Efetuar saque
+        if opcao == '1':
+            # Não permite mais saques do que o limite diário da conta
+            if conta_escolhida.saques_hoje >= conta_escolhida.limite_saques:
+                print('\nLimite de saques diários atingido, operação não efetuada.')
                 tentativas += 1
                 print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-            # Input que não corresponde a nenhuma das opções disponíveis inserido 3 vezes seguidas
-            if tentativas >= MAX_TENTATIVAS:
+            # Não permite efetuar saques em contas sem saldo
+            elif conta_escolhida.saldo <= 0:
+                print('\nSaldo insuficiente.')
+                tentativas += 1
+                print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+            else:
+                sucesso = gerenciar_tentativas_saque(conta=conta_escolhida)
+                if sucesso:
+                    tentativas = 0
+                else:
+                    return 'tentativas excedidas'
+
+        # Efetuar depósito
+        elif opcao == '2':
+            sucesso = gerenciar_tentativas_deposito(conta_escolhida)
+            if sucesso:
+                tentativas = 0
+            else:
                 return 'tentativas excedidas'
-                    
-        return 'operacao bem sucedida'
+        # Imprimir extrato
+        elif opcao == '3':
+            exibir_extrato(conta_escolhida.saldo, agencia=conta_escolhida.agencia, numero=conta_escolhida.numero, titular=conta_escolhida.cliente.nome, historico=conta_escolhida.historico)
+            tentativas = 0
+        # SAIR
+        elif opcao == '0':
+            break
+        else:
+            tentativas += 1
+            print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+        # Input que não corresponde a nenhuma das opções disponíveis inserido 3 vezes seguidas
+        if tentativas >= MAX_TENTATIVAS:
+            return 'tentativas excedidas'
+                
+    return 'operacao bem sucedida'
 
 # Função responsável pelas opções do menu de gerenciamento de contas, ou seja, criação, movimentação e desativação de contas corrente e desativação de usuário
 def gerenciar_contas(cliente):
@@ -519,15 +527,17 @@ def gerenciar_contas(cliente):
             print('\nInsira os dados da conta que deseja movimentar.')
             agencia = input('Agência: ')
             numero_conta = input('Número da conta: ')
-            res = movimentar_contas(agencia=agencia, numero_conta=numero_conta, lista_contas_usuario=contas_usuario)
-            if res == 'conta nao encontrada':
+            conta = encontrar_uma_conta(agencia=agencia, numero_conta=numero_conta, lista_contas=contas_usuario)
+            if conta == 'conta nao encontrada':
                 tentativas += 1
                 print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-            elif res == 'operacao bem sucedida':
-                tentativas = 0
-                print('\nComo mais podemos ajudá-lo?')
-            elif res == 'tentativas excedidas':
-                tentativas = 3
+            else:
+                res = movimentar_contas(conta_escolhida=conta)
+                if res == 'operacao bem sucedida':
+                    tentativas = 0
+                    print('\nComo mais podemos ajudá-lo?')
+                elif res == 'tentativas excedidas':
+                    tentativas = MAX_TENTATIVAS
         # Desativar Conta Corrente
         elif opcao == '3':
             print('\nInsira os dados da conta que deseja desativar.')
@@ -543,7 +553,7 @@ def gerenciar_contas(cliente):
         # Desativar Usuário
         elif opcao == '4':
             if not possui_contas:
-                desativar_usuario(cliente)
+                cliente.ativo = False
                 print('\nLamentamos que esteja de saída.')
                 break
             else:
@@ -756,7 +766,13 @@ def atendimento_pessoa_fisica():
         cliente = verificar_cpf(cpf)
         if cliente != None:
             # Vai para o menu de gerenciamento de contas
-            gerenciar_contas(cliente)
+            if not cliente.ativo:
+                cliente_reativado = reativacao_cliente(cliente)
+                # Se o cliente for reativado, vai para o gerenciamento de contas, se não a sessão é encerrada
+                if cliente_reativado:
+                    gerenciar_contas(cliente)
+            else:
+                gerenciar_contas(cliente)
         else:
             # Cadastra o usuário
             cadastrar_usuario(cpf)
