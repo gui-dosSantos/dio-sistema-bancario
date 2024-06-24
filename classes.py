@@ -83,13 +83,17 @@ class ContaCorrente(Conta):
     def limite_saques(self):
         return self._limite_saques
     
-    def sacar(self, valor: float) -> bool:
-        # Verifica quantos saques foram realizados no dia
+    # Verifica quantos saques foram realizados no dia
+    @property
+    def saques_hoje(self):
         saques_hoje = 0
         for transacao in self.historico.transacoes:
             if transacao['tipo'] == Saque.__name__ and transacao['data'].date() == date.today():
                 saques_hoje += 1
-        if saques_hoje >= self.limite_saques:
+        return saques_hoje
+    
+    def sacar(self, valor: float) -> bool:
+        if self.saques_hoje >= self.limite_saques:
             print('\nQuantidade máxima de saques diários atingida.')
         elif valor > self.limite:
             print(f'\nO valor limite para saque da sua conta é de R$ {self.limite:.2f}.')
