@@ -182,13 +182,13 @@ def solicitar_cnpj():
     return 'sair'
 
 # Verifica se o cpf informado já está presente na lista de usuários
-def verificar_cpf(cpf):
+def verificar_cpf(cpf) -> Cliente | None:
     for cliente in usuarios:
         if isinstance(cliente, PessoaFisica):
             if cliente.cpf == cpf:
-                return True
+                return cliente
     
-    return False
+    return None
 
 # Verifica se o cnpj informado já está presente na lista de usuários
 def verificar_cnpj(cnpj):
@@ -789,9 +789,10 @@ def atendimento_pessoa_fisica():
     # Se o cpf for informado no formato correto
     if cpf != 'sair':
         # Verifica se o cpf já está cadastrado
-        if verificar_cpf(cpf):
+        cliente = verificar_cpf(cpf)
+        if cliente != None:
             # Vai para o menu de gerenciamento de contas
-            gerenciar_contas(cpf)
+            gerenciar_contas(cliente)
         else:
             # Cadastra o usuário
             cadastrar_usuario(cpf)
@@ -830,7 +831,6 @@ Bem vindo(a) ao Banco X!
         if opcao == '1':
             tentativas = 0
             atendimento_pessoa_fisica()
-            pass
         elif opcao == '2':
             tentativas = 0
             # atendimento_pessoa_juridica()
