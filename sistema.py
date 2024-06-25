@@ -1,15 +1,6 @@
 from datetime import datetime, date
 from classes import Conta, ContaCorrente, Deposito, Saque, SaqueFinal, Historico, Cliente, PessoaFisica, PessoaJuridica
 
-MENU = f'''
-{' MENU '.center(20, '-')}
-
-[1] Depósito
-[2] Saque
-[3] Extrato
-[0] Sair
-
-'''
 usuarios = []
 contas = []
 MAX_TENTATIVAS = 3
@@ -33,13 +24,13 @@ def exibir_extrato(saldo: float, /, *, agencia: str, numero: int, titular: str, 
     print(f'Titular: {titular}')
     print(f"{' EXTRATO '.center(60, '=')}\n")
     for entrada in historico.transacoes:
-        print(f'{entrada['data'].strftime('%d-%m-%Y %H:%M:%S')} {entrada['tipo']}: R$ {entrada['valor']:.2f}')
+        print(f"{entrada['data'].strftime('%d-%m-%Y %H:%M:%S')} {entrada['tipo']}: R$ {entrada['valor']:.2f}")
     print()
     print(f'Saldo: R$ {saldo:.2f}\n')
     print(''.center(60, '='))
 
 # Função de depósito
-def gerenciar_tentativas_deposito(conta, /):
+def gerenciar_tentativas_deposito(conta: Conta) -> bool:
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         # bloco para receber o input do usuário, atendendo aos requerimentos de um depósito, onde o valor inserido deve ser numérico e maior que 0
@@ -47,23 +38,27 @@ def gerenciar_tentativas_deposito(conta, /):
             valor = float(input('Insira o valor a ser depositado ou 0 para abortar a operação: '))
             if valor == 0:
                 return True
+            # Recebe True se o valor inserido for maior que 0
             deposito_bem_sucedido = conta.depositar(valor)
             # Cria a transação e faz o registro
             if deposito_bem_sucedido:
                 deposito = Deposito(valor)
                 deposito.registrar(conta)
                 return True
+            # Se o valor inserido for menor que 0, lança um ValueError
             else:
                 raise ValueError('Deposito falhou')
         except ValueError as err:
             tentativas += 1
+            # Como a função depositar da classe Conta já imprime um aviso quando o valor inserido é menor que 0
+            # optei por somente imprimir um aviso caso o erro for lançado quando o cliente insere um valor não numérico
             if err.args[0] != 'Deposito falhou':
                 print('\nInsira um valor numérico maior que 0.')
             print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
     return False
 
 # Função de saque
-def gerenciar_tentativas_saque(*, conta):
+def gerenciar_tentativas_saque(conta: Conta) -> bool:
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         # bloco para receber o input do usuário, atendendo aos requerimentos de um saque, onde o valor inserido deve ser numérico, maior que 0 e menor que o saldo da conta
@@ -81,20 +76,23 @@ def gerenciar_tentativas_saque(*, conta):
                 raise ValueError('Saque falhou')
         except ValueError as err:
             tentativas += 1
+            # Como as funções sacar de Conta e de ContaCorrente imprimem avisos quando os requerimentos numéricos
+            # não são atingidos, optei por somente imprimir um aviso quando o erro é lançado pelo cliente tentando
+            # inserir um valor não numérico
             if err.args[0] != 'Saque falhou':
                 print('\nInsira um valor numérico maior que 0.')
             print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
     return False
 
 # Efetua um saque igual a todo o valor do saldo. Exclusivo para contas que estão sendo desativadas
-def saque_final(*, conta):
+def saque_final(*, conta: Conta) -> None:
     valor = conta.saldo
     conta.saque_final()
     saque = SaqueFinal(valor)
     saque.registrar(conta)
 
 # Lida com a criação de um novo usuário que será posteriormente adicionado a lista de usuários do banco
-def criar_usuario_pf(cpf):
+def criar_usuario_pf(cpf: str) -> PessoaFisica | None:
     nome = input('Insira o seu nome: ')
     data_nascimento = solicitar_data_nascimento()
     # Retorna None caso o usuário tenha inserido a data de nascimento no formato errado 3 vezes
@@ -116,7 +114,7 @@ def criar_usuario_pf(cpf):
     novo_usuario = PessoaFisica(endereco=endereco, cpf=cpf, nome=nome, data_nascimento=data_nascimento)
     return novo_usuario
 
-def criar_usuario_pj(cnpj):
+def criar_usuario_pj(cnpj: str) -> PessoaJuridica | None:
     nome = input('Insira o seu nome ou nome fantasia: ')
     print("Insira seu endereço: ")
     logradouro = input('Logradouro: ')
@@ -134,15 +132,19 @@ def criar_usuario_pj(cnpj):
     return novo_usuario
 
 # Solicita o cpf e verifica se foi inserido no formato correto
-def solicitar_cpf():
+def solicitar_cpf() -> str:
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         cpf = input('Insira seu número de CPF(somente os números) ou digite "sair" para encerra a sessão: ')
         # Input para encerra a execução do programa
         if cpf == 'sair':
             break
+        # CPFs contem 11 números
+        # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        # Adicionar posteriormente uma função para verificar a validade do CPF através do calculo dos números verificadores
         elif len(cpf) == 11:
             try:
+                # Verifica se foram inseridos somente números
                 int(cpf)
                 return cpf
             except ValueError:
@@ -157,14 +159,18 @@ def solicitar_cpf():
     return 'sair'
 
 # Solicita o cnpj e verifica se foi inserido no formato correto
-def solicitar_cnpj():
+def solicitar_cnpj() -> str:
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         cnpj = input('Insira seu número de CNPJ(somente os números) ou digite "sair" para encerra a sessão: ')
         if cnpj == 'sair':
             break
+        # CNPJs contém 14 números
+        # ++++++++++++++++++++++++++++++++++++++++++++++++++
+        # Mesma coisa do cpf
         elif len(cnpj) == 14:
             try:
+                # Verifica se foram inseridos somente números
                 int(cnpj)
                 return cnpj
             except ValueError:
@@ -197,7 +203,7 @@ def verificar_cnpj(cnpj) -> Cliente | None:
     return None
 
 # Solicita a data de nascimento e verifica se foi inserida no formato correto
-def solicitar_data_nascimento():                                                                  
+def solicitar_data_nascimento() -> date | str:                                                                  
     tentativas = 0
     FORMATO = '%d/%m/%Y'
     # Loop onde é solicitada a data e nascimento e verificada sua validade
@@ -214,7 +220,7 @@ def solicitar_data_nascimento():
     return 'tentativas excedidas'
 
 # Solicita a sigla do estado do usuário e verifica se ela corresponde a uma das siglas dos estados brasileiros
-def solicitar_sigla_estado():
+def solicitar_sigla_estado() -> str:
     ESTADOS = (
         'RS',
         'SC',
@@ -248,6 +254,7 @@ def solicitar_sigla_estado():
 
     while MAX_TENTATIVAS > tentativas:
         estado = input('Sigla do estado: ').upper()
+        # Verifica se o estado inserido corresponde a sigla de algum dos 26 estados + DF
         if estado in ESTADOS:
             return estado
         else: 
@@ -258,7 +265,7 @@ def solicitar_sigla_estado():
     return 'tentativas excedidas'
 
 # Reativar usuário inativo
-def reativacao_cliente(cliente):
+def reativacao_cliente(cliente: Cliente) -> bool:
     print('\nDetectamos a existência de um usuário inativo registrado neste CPF.')
     MENSAGEM_ATIVACAO = '''Gostaria de reativar sua conta de usuário?
     
@@ -284,14 +291,14 @@ def reativacao_cliente(cliente):
 
 
 # Verifica se há usuarios desativados
-def verificar_usuarios_desativados():
+def verificar_usuarios_desativados() -> bool:
     for usuario in usuarios:
         if not usuario['ativo']:
             return True
     return False
 
 # Exclui um usuário desativado
-def excluir_usuario(cpf):
+def excluir_usuario(cpf: str) -> str:
     user_index = 'usuario nao encontrado'
     # Percorre a lista de usuários
     for index, usuario in enumerate(usuarios):
@@ -313,7 +320,7 @@ def excluir_usuario(cpf):
         del usuarios[user_index]
         return 'usuario excluido'
                 
-def excluir_todos_usuarios_desativados():
+def excluir_todos_usuarios_desativados() -> None:
     # Percorre a lista de usuários ao contrário para evitar que a exclusão de um usuário afete o índice de outro a ser excluído
     for i in range(len(usuarios) - 1, -1, -1):
         # Checa se o usuário está inativo
@@ -324,7 +331,7 @@ def excluir_todos_usuarios_desativados():
             del usuarios[i]
 
 # Cria uma nova conta corrente associada a um usuário já existente
-def criar_conta_corrente(cliente):
+def criar_conta_corrente(cliente: Cliente) -> ContaCorrente:
     # Optei por determinar o número da nova conta baseado no número da última conta da lista ao invés do tamanho da lista(que diminuiria em caso de exclusão de uma conta,
     # levando a criação de contas com o mesmo número)
     numero_conta = 1 if len(contas) == 0 else contas[-1].numero + 1
@@ -332,22 +339,22 @@ def criar_conta_corrente(cliente):
     return nova_conta
 
 # Lida com o registro de novas contas corrente
-def registrar_nova_conta(cliente):
+def registrar_nova_conta(cliente: Cliente) -> None:
     nova_conta = criar_conta_corrente(cliente)
     contas.append(nova_conta)
     cliente.contas.append(nova_conta)
     print(f'\nNova conta corrente criada: Agência: {nova_conta.agencia}, Conta: {nova_conta.numero}')
 
 # Lida com a desativação de contas, que é zerada caso ainda possua saldo
-def desativar_conta(*, agencia, numero_conta, lista_contas_usuario):
-    for conta in lista_contas_usuario:
-        if conta.agencia == agencia and str(conta.numero) == numero_conta:
-            if conta.saldo > 0:
-                saque_final(conta=conta)
-            conta.desativar_conta()
-            return True
-    print('\nAgência ou número da conta não correspondem às contas vinculadas a este usuário.')
-    return False
+def desativar_conta(*, agencia: str, numero_conta: str, lista_contas_usuario: list[Conta]) -> bool:
+    conta = encontrar_uma_conta(agencia=agencia, numero_conta=numero_conta, lista_contas=lista_contas_usuario)
+    if conta == 'conta nao encontrada':
+        return False
+    else:
+        if conta.saldo > 0:
+            saque_final(conta=conta)
+        conta.desativar_conta()
+        return True
 
 # Encontra todas as contas ativas de um cliente as retorna em uma lista
 def encontrar_contas_ativas(contas: list[Conta]) -> list[Conta]:
@@ -359,7 +366,7 @@ def encontrar_contas_ativas(contas: list[Conta]) -> list[Conta]:
     return lista_contas_usuario
 
 # Encontra e retorna uma conta de acordo com o numero da agencia e o numero da conta
-def encontrar_uma_conta(*, agencia, numero_conta, lista_contas = contas):
+def encontrar_uma_conta(*, agencia: str, numero_conta: str, lista_contas: list[Conta] = contas) -> Conta | str:
     for conta in lista_contas:
         if conta.agencia == agencia and str(conta.numero) == numero_conta:
             return conta
@@ -367,20 +374,20 @@ def encontrar_uma_conta(*, agencia, numero_conta, lista_contas = contas):
     return 'conta nao encontrada'
 
 # Pega uma lista de contas e formata em uma string
-def listar_contas(contas_usuario):
+def listar_contas(contas_usuario: list[Conta]) -> str:
     res = ''
     for conta in contas_usuario:
         res += f'Agência: {conta.agencia}, Conta: {conta.numero}\n'
     return res
 
 # Reseta o contador de saques diário de todas as contas
-def resetar_saques_diarios_todos():
+def resetar_saques_diarios_todos() -> None:
     for conta in contas:
         conta['saques_hoje'] = 0
     print('\nContador de saques diário de todas as contas resetado.')
 
 # Reseta o contador de saques diário de uma única conta caso ela exista e retorna o resultado da busca
-def resetar_saques_diarios_uma_conta(*, agencia, numero_conta):
+def resetar_saques_diarios_uma_conta(*, agencia: str, numero_conta: str) -> bool:
     conta_encontrada = False
     for conta in contas:
         if conta['agencia'] == agencia and str(conta['numero_conta']) == numero_conta:
@@ -389,7 +396,7 @@ def resetar_saques_diarios_uma_conta(*, agencia, numero_conta):
     return conta_encontrada
 
 # Exclui uma conta desativada
-def excluir_conta(*, agencia, numero_conta):
+def excluir_conta(*, agencia: str, numero_conta: str) -> str:
     for i, conta in enumerate(contas):
         if conta['agencia'] == agencia and str(conta['numero_conta']) == numero_conta:
             if conta['ativa']:
@@ -400,14 +407,15 @@ def excluir_conta(*, agencia, numero_conta):
     return 'conta nao encontrada'
 
 # Exclui todas as contas de um usuário
-def excluir_todas_contas_de_um_usuario(cpf):
+def excluir_todas_contas_de_um_usuario(cpf: str) -> None:
     # Percorre a lista de contas ao contrário para que a exclusão de uma conta não afete o índice da próxima conta a ser excluída
     for i in range(len(contas) - 1, -1, -1):
         if contas[i]['cpf'] == cpf:
             del contas[i]
     print(f'\nTodas as contas do usuário de CPF {cpf} foram excluídas.')
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-def excluir_todas_contas_desativadas_de_um_usuario(cpf):
+def excluir_todas_contas_desativadas_de_um_usuario(cpf: str) -> None:
     # Percorre a lista de contas ao contrário para que a exclusão de uma conta não afete o índice da próxima conta a ser excluída
     for i in range(len(contas) - 1, -1, -1):
         if contas[i]['cpf'] == cpf and not contas[i]['ativa']:
@@ -415,21 +423,21 @@ def excluir_todas_contas_desativadas_de_um_usuario(cpf):
     print(f'\nTodas as contas desativadas do usuário de CPF {cpf} foram excluídas.')
 
 # Exclui todas as contas desativadas
-def excluir_todas_contas_desativadas():
+def excluir_todas_contas_desativadas() -> None:
     # Percorre a lista de contas ao contrário para que a exclusão de uma conta não afete o índice da próxima conta a ser excluída
     for i in range(len(contas) - 1, -1, -1):
         if not contas[i]['ativa']:
             del contas[i]
 
 # Verifica se há contas desativadas
-def verificar_contas_desativadas():
+def verificar_contas_desativadas() -> bool:
     for conta in contas:
         if not conta['ativa']:
             return True
     return False
 
 # Lida com o registro de novos usuários
-def cadastrar_usuario(cpf_cnpj, tipo):
+def cadastrar_usuario(cpf_cnpj: str, tipo: str) -> None:
     MENU_CADASTRO_CLIENTE = '''
 [1] Cadastrar
 [0] Sair
@@ -465,7 +473,7 @@ def cadastrar_usuario(cpf_cnpj, tipo):
         print('Número máximo de tentativas excedido.')
 
 # Função responsável pelas opções do menu de movimentação de contas, ou seja, saques, depósitos e impressão de extratos
-def movimentar_contas(*, conta_escolhida):
+def movimentar_contas(*, conta_escolhida: Conta) -> str:
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         print('\nMovimentação de contas'.center(60, '-'))
@@ -493,7 +501,7 @@ Saldo: R$ {conta_escolhida.saldo:.2f}
                 tentativas += 1
                 print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
             else:
-                sucesso = gerenciar_tentativas_saque(conta=conta_escolhida)
+                sucesso = gerenciar_tentativas_saque(conta_escolhida)
                 if sucesso:
                     tentativas = 0
                 else:
@@ -523,10 +531,11 @@ Saldo: R$ {conta_escolhida.saldo:.2f}
     return 'operacao bem sucedida'
 
 # Função responsável pelas opções do menu de gerenciamento de contas, ou seja, criação, movimentação e desativação de contas corrente e desativação de usuário
-def gerenciar_contas(cliente):
+def gerenciar_contas(cliente: Cliente) -> None:
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
-        print('\nGerenciamento de contas'.center(60, '-'))
+        print()
+        print('Gerenciamento de contas'.center(60, '-'))
         contas_usuario = encontrar_contas_ativas(cliente.contas)
         contas_formatadas = listar_contas(contas_usuario)
         possui_contas = len(contas_usuario) != 0
@@ -537,7 +546,7 @@ def gerenciar_contas(cliente):
 [4] Desativar usuário {'- INDISPONÍVEL' if possui_contas else ''}
 [0] Sair
 '''
-        print(f'\n{'Suas contas:' if len(contas_usuario) > 0 else 'Nenhuma conta registrada.'}' + f'\n{contas_formatadas}' + MENU_CONTAS)
+        print(f"\n{'Suas contas:' if len(contas_usuario) > 0 else 'Nenhuma conta registrada.'}" + f'\n{contas_formatadas}' + MENU_CONTAS)
         opcao = input('Escolha uma das opções: ')
         # Abrir nova conta corrente
         if opcao == '1':
@@ -605,7 +614,7 @@ def gerenciar_contas(cliente):
         print('Número máximo de tentativas excedido.')
 
 # Função que permite o gerenciamento de usuários e contas por parte do banco
-def gerenciamento_institucional():
+def gerenciamento_institucional() -> None:
     LIMITE_MINIMO_SAQUE = 100.0
     LIMITE_MINIMO_SAQUES_DIARIOS = 1
     global MAX_TENTATIVAS, LIMITE_SAQUE, LIMITE_SAQUES_DIARIOS
@@ -791,7 +800,7 @@ def gerenciamento_institucional():
             print('Número máximo de tentativas excedido.')
 
 # Atendimento de pessoas físicas 
-def atendimento_pessoa_fisica():
+def atendimento_pessoa_fisica() -> None:
     cpf = solicitar_cpf()
     # Se o cpf for informado no formato correto
     if cpf != 'sair':
@@ -811,10 +820,10 @@ def atendimento_pessoa_fisica():
             cadastrar_usuario(cpf, 'CPF')
     
     print('\nObrigado por utilizar os nossos serviços!')
-    print(f'\n{''.center(100, 'X')}')
+    print(f"\n{''.center(100, 'X')}")
 
 # Atendimento de pessoas jurídicas
-def atendimento_pessoa_juridica():
+def atendimento_pessoa_juridica() -> None:
     cnpj = solicitar_cnpj()
     # Se o cnpj for informado no formato correto
     if cnpj != 'sair':
@@ -832,13 +841,12 @@ def atendimento_pessoa_juridica():
         else: 
             # Cadastrar cliente
             cadastrar_usuario(cnpj, 'CNPJ')
-            pass
     
     print('\nObrigado por utilizar os nossos serviços!')
-    print(f'\n{''.center(100, 'X')}')
+    print(f"\n{''.center(100, 'X')}")
 
 # Inicio do programa
-def iniciar_atendimento():
+def iniciar_atendimento() -> None:
     MENSAGEM_INICIAL = '''
 Bem vindo(a) ao Banco X!
     
