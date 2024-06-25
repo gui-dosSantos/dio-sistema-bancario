@@ -118,6 +118,23 @@ def criar_usuario_pf(cpf):
     novo_usuario = PessoaFisica(endereco=endereco, cpf=cpf, nome=nome, data_nascimento=data_nascimento)
     return novo_usuario
 
+def criar_usuario_pj(cnpj):
+    nome = input('Insira o seu nome ou nome fantasia: ')
+    print("Insira seu endereço: ")
+    logradouro = input('Logradouro: ')
+    numero = input('Número: ')
+    bairro = input('Bairro: ')
+    cidade = input('Cidade: ')
+    estado = solicitar_sigla_estado()
+    # Retorna None caso o usuário tenha inserido errado a sigla do estado 3 vezes
+    if estado == 'tentativas excedidas':                                                        
+        return None
+    # Formatação do endereço
+    endereco = " - ".join([logradouro + f', {numero}', bairro, cidade]) + f'/{estado}'
+    # Novo Usuário criado como uma instância de PessoaJuridica
+    novo_usuario = PessoaJuridica(endereco=endereco, cnpj=cnpj, nome=nome)
+    return novo_usuario
+
 # Solicita o cpf e verifica se foi inserido no formato correto
 def solicitar_cpf():
     global MAX_TENTATIVAS
@@ -175,13 +192,13 @@ def verificar_cpf(cpf) -> Cliente | None:
     return None
 
 # Verifica se o cnpj informado já está presente na lista de usuários
-def verificar_cnpj(cnpj):
+def verificar_cnpj(cnpj) -> Cliente | None:
     for cliente in usuarios:
         if isinstance(cliente, PessoaJuridica):
             if cliente.cnpj == cnpj:
-                return True
+                return cliente
         
-    return False
+    return None
 
 # Solicita a data de nascimento e verifica se foi inserida no formato correto
 def solicitar_data_nascimento():                                                                  
@@ -419,19 +436,21 @@ def verificar_contas_desativadas():
     return False
 
 # Lida com o registro de novos usuários
-def cadastrar_usuario(cpf):
-    global MAX_TENTATIVAS
+def cadastrar_usuario(cpf_cnpj, tipo):
     MENU_CADASTRO_CLIENTE = '''
 [1] Cadastrar
 [0] Sair
 '''
-    print("\nVerificamos que o CPF informado não está cadastrado no nosso banco de dados de clientes. Gostaria de se cadastrar?")
+    print(f"\nVerificamos que o {tipo} informado não está cadastrado no nosso banco de dados de clientes. Gostaria de se cadastrar?")
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         print(MENU_CADASTRO_CLIENTE)
         opcao = input('Escolha uma das opções: ')
         if opcao == '1':
-            novo_usuario = criar_usuario_pf(cpf)
+            if tipo == 'CPF':
+                novo_usuario = criar_usuario_pf(cpf_cnpj)
+            elif tipo == 'CNPJ':
+                novo_usuario = criar_usuario_pj(cpf_cnpj)
             # Se alguma das etapas da criação do novo usuário falhar por número máximo de tentativas excedido, o atendimento é terminado
             if novo_usuario == None:    
                 tentativas = MAX_TENTATIVAS
@@ -456,6 +475,7 @@ def cadastrar_usuario(cpf):
 def movimentar_contas(*, conta_escolhida):
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
+        print('\nMovimentação de contas'.center(60, '-'))
         MENU_OPERACOES = f'''
 Agencia: {conta_escolhida.agencia} Conta: {conta_escolhida.numero}
 Saldo: R$ {conta_escolhida.saldo:.2f}
@@ -513,6 +533,7 @@ Saldo: R$ {conta_escolhida.saldo:.2f}
 def gerenciar_contas(cliente):
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
+        print('\nGerenciamento de contas'.center(60, '-'))
         contas_usuario = encontrar_contas_ativas(cliente.contas)
         contas_formatadas = listar_contas(contas_usuario)
         possui_contas = len(contas_usuario) != 0
@@ -523,7 +544,7 @@ def gerenciar_contas(cliente):
 [4] Desativar usuário {'- INDISPONÍVEL' if possui_contas else ''}
 [0] Sair
 '''
-        print(f'\n{'Suas contas:' if len(contas_usuario) > 0 else 'Não há contas corrente registradas neste CPF.'}' + f'\n{contas_formatadas}' + MENU_CONTAS)
+        print(f'\n{'Suas contas:' if len(contas_usuario) > 0 else 'Nenhuma conta registrada.'}' + f'\n{contas_formatadas}' + MENU_CONTAS)
         opcao = input('Escolha uma das opções: ')
         # Abrir nova conta corrente
         if opcao == '1':
@@ -794,7 +815,7 @@ def atendimento_pessoa_fisica():
                 gerenciar_contas(cliente)
         else:
             # Cadastra o usuário
-            cadastrar_usuario(cpf)
+            cadastrar_usuario(cpf, 'CPF')
     
     print('\nObrigado por utilizar os nossos serviços!')
     print(f'\n{''.center(100, 'X')}')
@@ -802,12 +823,22 @@ def atendimento_pessoa_fisica():
 # Atendimento de pessoas jurídicas
 def atendimento_pessoa_juridica():
     cnpj = solicitar_cnpj()
+    # Se o cnpj for informado no formato correto
     if cnpj != 'sair':
-        if verificar_cnpj(cnpj):
-            gerenciar_contas(cnpj)
+        # verifica se o cnpj já está cadastrado
+        cliente = verificar_cnpj(cnpj)
+        if cliente != None:
+            # Vai para o menu de gerenciamento de contas
+            if not cliente.ativo:
+                cliente_reativado = reativacao_cliente(cliente)
+                # Se o cliente for reativado, vai para o gerenciamento de contas, se não a sessão é encerrada
+                if cliente_reativado:
+                    gerenciar_contas(cliente)
+            else:
+                gerenciar_contas(cnpj)
         else: 
-            # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-            # cadastrar_usuario_cnpj(cnpj)
+            # Cadastrar cliente
+            cadastrar_usuario(cnpj, 'CNPJ')
             pass
     
     print('\nObrigado por utilizar os nossos serviços!')
@@ -815,7 +846,6 @@ def atendimento_pessoa_juridica():
 
 # Inicio do programa
 def iniciar_atendimento():
-    global MAX_TENTATIVAS
     MENSAGEM_INICIAL = '''
 Bem vindo(a) ao Banco X!
     
@@ -832,7 +862,7 @@ Bem vindo(a) ao Banco X!
             atendimento_pessoa_fisica()
         elif opcao == '2':
             tentativas = 0
-            # atendimento_pessoa_juridica()
+            atendimento_pessoa_juridica()
             pass
         elif opcao == '0':
             break
