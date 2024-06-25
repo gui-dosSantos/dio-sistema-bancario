@@ -40,7 +40,6 @@ def exibir_extrato(saldo: float, /, *, agencia: str, numero: int, titular: str, 
 
 # Função de depósito
 def gerenciar_tentativas_deposito(conta, /):
-    global MAX_TENTATIVAS
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         # bloco para receber o input do usuário, atendendo aos requerimentos de um depósito, onde o valor inserido deve ser numérico e maior que 0
@@ -65,7 +64,6 @@ def gerenciar_tentativas_deposito(conta, /):
 
 # Função de saque
 def gerenciar_tentativas_saque(*, conta):
-    global MAX_TENTATIVAS, LIMITE_SAQUE
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         # bloco para receber o input do usuário, atendendo aos requerimentos de um saque, onde o valor inserido deve ser numérico, maior que 0 e menor que o saldo da conta
@@ -137,7 +135,6 @@ def criar_usuario_pj(cnpj):
 
 # Solicita o cpf e verifica se foi inserido no formato correto
 def solicitar_cpf():
-    global MAX_TENTATIVAS
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         cpf = input('Insira seu número de CPF(somente os números) ou digite "sair" para encerra a sessão: ')
@@ -161,7 +158,6 @@ def solicitar_cpf():
 
 # Solicita o cnpj e verifica se foi inserido no formato correto
 def solicitar_cnpj():
-    global MAX_TENTATIVAS
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         cnpj = input('Insira seu número de CNPJ(somente os números) ou digite "sair" para encerra a sessão: ')
@@ -203,8 +199,6 @@ def verificar_cnpj(cnpj) -> Cliente | None:
 # Solicita a data de nascimento e verifica se foi inserida no formato correto
 def solicitar_data_nascimento():                                                                  
     tentativas = 0
-    global MAX_TENTATIVAS
-    
     FORMATO = '%d/%m/%Y'
     # Loop onde é solicitada a data e nascimento e verificada sua validade
     while MAX_TENTATIVAS > tentativas:                                                        
@@ -251,7 +245,6 @@ def solicitar_sigla_estado():
         'AP',
     )
     tentativas = 0
-    global MAX_TENTATIVAS
 
     while MAX_TENTATIVAS > tentativas:
         estado = input('Sigla do estado: ').upper()
