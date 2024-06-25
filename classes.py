@@ -67,6 +67,15 @@ class Conta:
             print(f'\nDepósito no valor de R$ {valor:.2f} efetuado com sucesso.')
             return True
 
+    # Saque de encerramento de conta, que zera o saldo caso este seja maior que 0
+    def saque_final(self):
+        valor = self.saldo
+        self._saldo -= valor
+        print(f'\nSaque final no valor de R$ {valor:.2f} efetuado com sucesso.')
+
+    def __str__(self) -> str:
+        return f'Agencia: {self.agencia} - Número: {self.numero} - Titular: {self.cliente.nome} - Saldo: {self.saldo} - Ativa: {self.ativa}'
+
 class ContaCorrente(Conta):
     global LIMITE_SAQUE, LIMITE_SAQUES_DIARIOS
 
@@ -88,7 +97,7 @@ class ContaCorrente(Conta):
     def saques_hoje(self):
         saques_hoje = 0
         for transacao in self.historico.transacoes:
-            if transacao['tipo'] == Saque.__name__ and transacao['data'].date() == date.today():
+            if transacao['tipo'] == 'Saque' and transacao['data'].date() == date.today():
                 saques_hoje += 1
         return saques_hoje
     
@@ -120,7 +129,7 @@ class Deposito(Transacao):
         return self._valor
 
     def registrar(self, conta: Conta):
-        conta.historico.adicionar_transacao(self)
+        conta.historico.adicionar_transacao(self, 'Depósito')
 
 class Saque(Transacao):
     def __init__(self, valor: float) -> None:
@@ -131,7 +140,12 @@ class Saque(Transacao):
         return self._valor
 
     def registrar(self, conta: Conta):
-        conta.historico.adicionar_transacao(self) 
+        conta.historico.adicionar_transacao(self, 'Saque') 
+
+# Saque de encerramento de conta que zera o saldo
+class SaqueFinal(Saque):
+    def registrar(self, conta: Conta):
+        conta.historico.adicionar_transacao(self, 'Saque Final')
 
 class Historico:
     def __init__(self) -> None:
@@ -141,9 +155,9 @@ class Historico:
     def transacoes(self):
         return self._transacoes
 
-    def adicionar_transacao(self, transacao: Transacao):
+    def adicionar_transacao(self, transacao: Transacao, tipo: str):
         entrada = {
-            'tipo': transacao.__class__.__name__,
+            'tipo': tipo,
             'valor': transacao.valor,
             'data': datetime.now()
         }
@@ -160,6 +174,9 @@ class Cliente:
 
     def desativar_conta_cliente(self):
         self.ativo = False
+
+    def reativar_conta_cliente(self):
+        self.ativo = True
 
     def realizar_transacao(self, conta: Conta, transacao: Transacao):
         transacao.registrar(conta)
@@ -184,7 +201,7 @@ class PessoaFisica(Cliente):
         return self._data_nascimento
     
     def __str__(self):
-        return f'Nome: {self.nome} - CPF: {self.cpf}\nEndereço: {self.endereco}\nData de Nascimento: {self.data_nascimento.strftime('%d/%m/%Y')}'
+        return f'Nome: {self.nome} - CPF: {self.cpf} - Ativo: {self.ativo}'
 
 class PessoaJuridica(Cliente):
     def __init__(self, *, endereco: str, cnpj: str, nome: str) -> None:
