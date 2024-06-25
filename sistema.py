@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from classes import Conta, ContaCorrente, Deposito, Saque, Historico, Cliente, PessoaFisica, PessoaJuridica
+from classes import Conta, ContaCorrente, Deposito, Saque, SaqueFinal, Historico, Cliente, PessoaFisica, PessoaJuridica
 
 MENU = f'''
 {' MENU '.center(20, '-')}
@@ -15,6 +15,16 @@ contas = []
 MAX_TENTATIVAS = 3
 LIMITE_SAQUE = 500.00
 LIMITE_SAQUES_DIARIOS = 3
+
+def imprimir_contas():
+    print('CONTAS'.center(60, '-'))
+    for conta in contas:
+        print(conta)
+
+def imprimir_clientes():
+    print('Clientes'.center(60, '-'))
+    for cliente in usuarios:
+        print(cliente)
 
 # Formata e imprime o extrato
 def exibir_extrato(saldo: float, /, *, agencia: str, numero: int, titular: str, historico: Historico):
@@ -80,10 +90,10 @@ def gerenciar_tentativas_saque(*, conta):
 
 # Efetua um saque igual a todo o valor do saldo. Exclusivo para contas que estão sendo desativadas
 def saque_final(*, conta):
-    valor = conta['saldo']
-    conta['saldo'] = 0.0
-    conta['extrato'] += f'Saque final: R$ {valor:.2f}\n'
-    print(f'\nSaque final no valor de R$ {valor:.2f} efetuado com sucesso.')
+    valor = conta.saldo
+    conta.saque_final()
+    saque = SaqueFinal(valor)
+    saque.registrar(conta)
 
 # Lida com a criação de um novo usuário que será posteriormente adicionado a lista de usuários do banco
 def criar_usuario_pf(cpf):
@@ -242,17 +252,17 @@ def reativacao_cliente(cliente):
     print('\nDetectamos a existência de um usuário inativo registrado neste CPF.')
     MENSAGEM_ATIVACAO = '''Gostaria de reativar sua conta de usuário?
     
-    [1] Sim
-    [0] Não
-    '''
+[1] Sim
+[0] Não
+'''
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         print(MENSAGEM_ATIVACAO)
         opcao = input('Escolha uma das opções: ')
         if opcao == '1':
-            cliente.ativo = True
+            cliente.reativar_conta_cliente()
             return True
-        elif opcao == '2':
+        elif opcao == '0':
             break
         else:
             tentativas += 1
@@ -321,13 +331,13 @@ def registrar_nova_conta(cliente):
 # Lida com a desativação de contas, que é zerada caso ainda possua saldo
 def desativar_conta(*, agencia, numero_conta, lista_contas_usuario):
     for conta in lista_contas_usuario:
-        if conta['agencia'] == agencia and str(conta['numero_conta']) == numero_conta:
-            if conta['saldo'] > 0:
+        if conta.agencia == agencia and str(conta.numero) == numero_conta:
+            if conta.saldo > 0:
                 saque_final(conta=conta)
-            conta['ativa'] = False
-            return 'conta desativada'
+            conta.desativar_conta()
+            return True
     print('\nAgência ou número da conta não correspondem às contas vinculadas a este usuário.')
-    return 'conta nao encontrada'
+    return False
 
 # Encontra todas as contas ativas de um cliente as retorna em uma lista
 def encontrar_contas_ativas(contas: list[Conta]) -> list[Conta]:
@@ -444,7 +454,6 @@ def cadastrar_usuario(cpf):
 
 # Função responsável pelas opções do menu de movimentação de contas, ou seja, saques, depósitos e impressão de extratos
 def movimentar_contas(*, conta_escolhida):
-    global MAX_TENTATIVAS, LIMITE_SAQUES_DIARIOS
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         MENU_OPERACOES = f'''
@@ -502,7 +511,6 @@ Saldo: R$ {conta_escolhida.saldo:.2f}
 
 # Função responsável pelas opções do menu de gerenciamento de contas, ou seja, criação, movimentação e desativação de contas corrente e desativação de usuário
 def gerenciar_contas(cliente):
-    global MAX_TENTATIVAS
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         contas_usuario = encontrar_contas_ativas(cliente.contas)
@@ -524,41 +532,52 @@ def gerenciar_contas(cliente):
             print('\nComo mais podemos ajudá-lo?')
         # Movimentar conta corrente
         elif opcao == '2':
-            print('\nInsira os dados da conta que deseja movimentar.')
-            agencia = input('Agência: ')
-            numero_conta = input('Número da conta: ')
-            conta = encontrar_uma_conta(agencia=agencia, numero_conta=numero_conta, lista_contas=contas_usuario)
-            if conta == 'conta nao encontrada':
+            if possui_contas:
+                print('\nInsira os dados da conta que deseja movimentar.')
+                agencia = input('Agência: ')
+                numero_conta = input('Número da conta: ')
+                conta = encontrar_uma_conta(agencia=agencia, numero_conta=numero_conta, lista_contas=contas_usuario)
+                if conta == 'conta nao encontrada':
+                    tentativas += 1
+                    print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+                else:
+                    res = movimentar_contas(conta_escolhida=conta)
+                    if res == 'operacao bem sucedida':
+                        tentativas = 0
+                        print('\nComo mais podemos ajudá-lo?')
+                    elif res == 'tentativas excedidas':
+                        tentativas = MAX_TENTATIVAS
+            else:
+                print('\nNenhuma conta ativa encontrada.')
                 tentativas += 1
                 print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-            else:
-                res = movimentar_contas(conta_escolhida=conta)
-                if res == 'operacao bem sucedida':
-                    tentativas = 0
-                    print('\nComo mais podemos ajudá-lo?')
-                elif res == 'tentativas excedidas':
-                    tentativas = MAX_TENTATIVAS
         # Desativar Conta Corrente
         elif opcao == '3':
-            print('\nInsira os dados da conta que deseja desativar.')
-            agencia = input('Agência: ')
-            numero_conta = input('Número da conta: ')
-            res = desativar_conta(agencia=agencia, numero_conta=numero_conta, lista_contas_usuario=contas_usuario)
-            if res == 'conta desativada':
-                tentativas = 0
-                print('\nComo mais podemos ajudá-lo?')
-            elif res == 'conta nao encontrada':
+            if possui_contas:   
+                print('\nInsira os dados da conta que deseja desativar.')
+                agencia = input('Agência: ')
+                numero_conta = input('Número da conta: ')
+                conta_desativada = desativar_conta(agencia=agencia, numero_conta=numero_conta, lista_contas_usuario=contas_usuario)
+                # Conta desativada com sucesso
+                if conta_desativada:
+                    tentativas = 0
+                    print('\nComo mais podemos ajudá-lo?')
+                else:
+                    tentativas += 1
+                    print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+            else:
+                print('\nNenhuma conta ativa encontrada.')
                 tentativas += 1
                 print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
         # Desativar Usuário
         elif opcao == '4':
             if not possui_contas:
-                cliente.ativo = False
+                cliente.desativar_conta_cliente()
                 print('\nLamentamos que esteja de saída.')
                 break
             else:
                 tentativas += 1
-                print('\nNão podemos excluir o usuário atual enquanto houver contas vinculadas ao mesmo.')
+                print('\nNão podemos excluir o usuário atual enquanto houver contas ativas vinculadas ao mesmo.')
                 print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
         # SAIR
         elif opcao == '0':
@@ -568,8 +587,8 @@ def gerenciar_contas(cliente):
             tentativas += 1
             print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
         # Input que não corresponde a nenhuma das opções disponíveis inserido 3 vezes seguidas
-        if tentativas >= MAX_TENTATIVAS:
-            print('Número máximo de tentativas excedido.')
+    if tentativas >= MAX_TENTATIVAS:
+        print('Número máximo de tentativas excedido.')
 
 # Função que permite o gerenciamento de usuários e contas por parte do banco
 def gerenciamento_institucional():
