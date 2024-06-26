@@ -503,6 +503,42 @@ def excluir_conta(*, agencia: str, numero_conta: str) -> str:
                 return 'conta deletada'
     return 'conta nao encontrada'
 
+def encontrar_cliente_excluir_contas_desativadas() -> bool:
+    ha_contas_desativadas = verificar_contas_desativadas()
+    if not ha_contas_desativadas:
+        print('\nNenhuma conta desativada encontrada. Recurso indisponível.')
+        return True
+    tentativas = 0
+    while tentativas < MAX_TENTATIVAS:
+        identificacao = input('\nInsira o CPF ou CNPJ(somente os números) do usuário a ser excluído ou "sair" para abortar a operação: ')
+        if identificacao == 'sair':
+            return True
+        
+        try:
+            int(identificacao)
+            if len(identificacao) == 11:
+                cliente = verificar_cpf(identificacao)
+            elif len(identificacao) == 14:
+                cliente = verificar_cnpj(identificacao)
+            else:
+                raise ValueError('\nInsira um número que contenha 11 dígitos(CPF) ou 14 dígitos(CNPJ).')
+            
+            if cliente == None:
+                raise ValueError('\nCliente não encontrado.')
+            else:
+                excluir_todas_contas_desativadas_de_um_usuario(cliente)
+                return True
+        except ValueError as err:
+            tentativas += 1
+            if err.args[0] == f"invalid literal for int() with base 10: '{identificacao}'":
+                print('\nInsira somente os números do CPF ou do CNPJ do usuário a ser excluído.')
+            else:
+                print(err.args[0])
+            print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+    return False
+
+
+
 # Exclui todas as contas desativadas de um usuario
 def excluir_todas_contas_desativadas_de_um_usuario(cliente: Cliente) -> None:
     # Percorre a lista de contas ao contrário para que a exclusão de uma conta não afete o índice da próxima conta a ser excluída
@@ -739,6 +775,7 @@ def gerenciamento_institucional() -> None:
             '2': alterar_limite_saques_diarios_uma_conta,
             '3': excluir_usuario_desativado,
             '4': excluir_todos_usuarios_desativados,
+            '5': encontrar_cliente_excluir_contas_desativadas,
         }
         print(MENU_GERENCIAMENTO)
         opcao = input('Escolha uma das opções: ')
@@ -751,20 +788,20 @@ def gerenciamento_institucional() -> None:
                 print('\nLimite de tentativas excedido.')
                 break
         # Excluir todas as contas desativadas de um usuário
-        elif opcao == '5':
-            if ha_contas_desativadas:
-                cpf = input('Insira o cpf do usuário cujas contas desativadas devem ser excluídas: ')
-                if verificar_cpf(cpf):
-                    tentativas = 0
-                    excluir_todas_contas_desativadas_de_um_usuario(cpf)
-                else:
-                    tentativas += 1
-                    print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                    print('Nenhum usuário com o CPF passado foi encontrado.')
-            else:
-                tentativas += 1
-                print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                print('Opção indisponível. Nenhuma conta desativada foi encontrada.')
+        # elif opcao == '5':
+        #     if ha_contas_desativadas:
+        #         cpf = input('Insira o cpf do usuário cujas contas desativadas devem ser excluídas: ')
+        #         if verificar_cpf(cpf):
+        #             tentativas = 0
+        #             excluir_todas_contas_desativadas_de_um_usuario(cpf)
+        #         else:
+        #             tentativas += 1
+        #             print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+        #             print('Nenhum usuário com o CPF passado foi encontrado.')
+        #     else:
+        #         tentativas += 1
+        #         print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+        #         print('Opção indisponível. Nenhuma conta desativada foi encontrada.')
         # Excluir conta desativada
         elif opcao == '6':
             if ha_contas_desativadas:
