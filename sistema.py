@@ -8,14 +8,20 @@ LIMITE_SAQUE = 500.00
 LIMITE_SAQUES_DIARIOS = 3
 
 def imprimir_contas():
-    print('CONTAS'.center(60, '-'))
-    for conta in contas:
-        print(conta)
+    print('CONTAS'.center(100, '-'))
+    if len(contas) == 0:
+        print()
+    else:
+        for conta in contas:
+            print(conta, conta.limite_saques)
 
 def imprimir_clientes():
-    print('Clientes'.center(60, '-'))
-    for cliente in usuarios:
-        print(cliente)
+    print('Clientes'.center(100, '-'))
+    if len(usuarios) == 0:
+        print()
+    else:
+        for cliente in usuarios:
+            print(cliente)
 
 # Formata e imprime o extrato
 def exibir_extrato(saldo: float, /, *, agencia: str, numero: int, titular: str, historico: Historico):
@@ -185,7 +191,7 @@ def solicitar_cnpj() -> str:
     return 'sair'
 
 # Verifica se o cpf informado já está presente na lista de usuários
-def verificar_cpf(cpf) -> Cliente | None:
+def verificar_cpf(cpf: str) -> Cliente | None:
     for cliente in usuarios:
         if isinstance(cliente, PessoaFisica):
             if cliente.cpf == cpf:
@@ -193,12 +199,30 @@ def verificar_cpf(cpf) -> Cliente | None:
     
     return None
 
+# Verifica se o cpf informado já está presente na lista de usuários e retorna o cliente e seu index na lista
+def verificar_cpf_index(cpf: str) -> int | None:
+    for index, cliente in enumerate(usuarios):
+        if isinstance(cliente, PessoaFisica):
+            if cliente.cpf == cpf:
+                return index
+    
+    return None
+
 # Verifica se o cnpj informado já está presente na lista de usuários
-def verificar_cnpj(cnpj) -> Cliente | None:
+def verificar_cnpj(cnpj: str) -> Cliente | None:
     for cliente in usuarios:
         if isinstance(cliente, PessoaJuridica):
             if cliente.cnpj == cnpj:
                 return cliente
+        
+    return None
+
+# Verifica se o cnpj informado já está presente na lista de usuários e retorna o cliente e seu index na lista
+def verificar_cnpj_index(cnpj: str) -> int | None:
+    for index, cliente in enumerate(usuarios):
+        if isinstance(cliente, PessoaJuridica):
+            if cliente.cnpj == cnpj:
+                return index
         
     return None
 
@@ -293,42 +317,67 @@ def reativacao_cliente(cliente: Cliente) -> bool:
 # Verifica se há usuarios desativados
 def verificar_usuarios_desativados() -> bool:
     for usuario in usuarios:
-        if not usuario['ativo']:
+        if not usuario.ativo:
             return True
     return False
-
-# Exclui um usuário desativado
-def excluir_usuario(cpf: str) -> str:
-    user_index = 'usuario nao encontrado'
-    # Percorre a lista de usuários
-    for index, usuario in enumerate(usuarios):
-        # Quando uma correspondencia com o CPF passado é encontrada
-        if usuario['cpf'] == cpf:
-            # Checa se o usuário está realmente inativo
-            if usuario['ativo']:
-                return 'usuario ativo'
-            # Salva o índice do usuário
-            else:
-                user_index = index
-                break
-    # Se nenhum usuário com o cpf passado é encontrado retorna uma mensagem descritiva
-    if user_index == 'usuario nao encontrado':
-        return 'usuario nao encontrado'
-    # Exclui todas as contas corrente do usuário e então exclui o usuário
-    else: 
-        excluir_todas_contas_de_um_usuario(cpf)
-        del usuarios[user_index]
-        return 'usuario excluido'
                 
-def excluir_todos_usuarios_desativados() -> None:
-    # Percorre a lista de usuários ao contrário para evitar que a exclusão de um usuário afete o índice de outro a ser excluído
-    for i in range(len(usuarios) - 1, -1, -1):
-        # Checa se o usuário está inativo
-        if not usuarios[i]['ativo']:
-            # Exclui todas as contas vinculadas ao usuário
-            excluir_todas_contas_de_um_usuario(usuarios[i]['cpf'])
-            # Exclui o usuário
-            del usuarios[i]
+# Exclui um usuário desativado
+def excluir_usuario_desativado() -> bool:
+    ha_usuarios_desativados = verificar_usuarios_desativados()
+    if not ha_usuarios_desativados:
+        print('\nNenhum usuário desativado encontrado. Recurso indisponível.')
+        return True
+    tentativas = 0
+    while tentativas < MAX_TENTATIVAS:
+        identificacao = input('\nInsira o CPF ou CNPJ(somente os números) do usuário a ser excluído ou "sair" para abortar a operação: ')
+        if identificacao == 'sair':
+            return True
+
+        try:
+            int(identificacao)
+            # Pega on indice do cliente selecionado na lista de usuarios
+            if len(identificacao) == 11:
+                index = verificar_cpf_index(identificacao)
+            elif len(identificacao) == 14:
+                index = verificar_cnpj_index(identificacao)
+            else:
+                raise ValueError('\nInsira um número que contenha 11 dígitos(CPF) ou 14 dígitos(CNPJ).')
+            
+            if index == None:
+                raise ValueError('\nCliente não encontrado.')
+            elif usuarios[index].ativo:
+                raise ValueError('\nClientes ativos não podem ser excluídos.')
+            else:
+                excluir_todas_contas_desativadas_de_um_usuario(usuarios[index])
+                del usuarios[index]
+                print('\nUsuário excluído com sucesso.')
+                return True
+        except ValueError as err:
+            tentativas += 1
+            if err.args[0] == f"invalid literal for int() with base 10: '{identificacao}'":
+                print('\nInsira somente os números do CPF ou do CNPJ do usuário a ser excluído.')
+            else:
+                print(err.args[0])
+            print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+    return False
+
+# Exclui todos os usuários desativados e suas respectivas contas. Sempre retorna True
+def excluir_todos_usuarios_desativados() -> bool:
+    ha_usuarios_desativados = verificar_usuarios_desativados()
+    if not ha_usuarios_desativados:
+        print('\nNenhum usuário desativado encontrado. Recurso indisponível.')
+        return True
+    else:
+        # Percorre a lista de usuários ao contrário para evitar que a exclusão de um usuário afete o índice de outro a ser excluído
+        for i in range(len(usuarios) - 1, -1, -1):
+            # Checa se o usuário está inativo
+            if not usuarios[i].ativo:
+                # Exclui todas as contas vinculadas ao usuário
+                excluir_todas_contas_desativadas_de_um_usuario(usuarios[i])
+                # Exclui o usuário
+                del usuarios[i]
+    print('\nTodos os usuários desativados e suas respectivas contas foram excluídos com sucesso.')
+    return True
 
 # Cria uma nova conta corrente associada a um usuário já existente
 def criar_conta_corrente(cliente: Cliente) -> ContaCorrente:
@@ -370,7 +419,7 @@ def encontrar_uma_conta(*, agencia: str, numero_conta: str, lista_contas: list[C
     for conta in lista_contas:
         if conta.agencia == agencia and str(conta.numero) == numero_conta:
             return conta
-    print('\nAgência ou número da conta não correspondem às contas vinculadas a este usuário.')
+    print('\nConta não encontrada.')
     return 'conta nao encontrada'
 
 # Pega uma lista de contas e formata em uma string
@@ -380,20 +429,68 @@ def listar_contas(contas_usuario: list[Conta]) -> str:
         res += f'Agência: {conta.agencia}, Conta: {conta.numero}\n'
     return res
 
-# Reseta o contador de saques diário de todas as contas
-def resetar_saques_diarios_todos() -> None:
-    for conta in contas:
-        conta['saques_hoje'] = 0
-    print('\nContador de saques diário de todas as contas resetado.')
+# Altera o limite de saques diário de todas as contas
+def alterar_limite_saques_diarios_geral() -> bool:
+    global LIMITE_SAQUES_DIARIOS
+    LIMITE_MINIMO_SAQUES_DIARIOS = 1
+    tentativas = 0
+    while tentativas < MAX_TENTATIVAS:
+        novo_limite = input(f'\nInsira o novo limite de saques diários(valor mínimo: {LIMITE_MINIMO_SAQUES_DIARIOS}) ou "sair" para abortar a operação: ')
+        if novo_limite == 'sair':
+            return True
+        try:
+            novo_limite = int(novo_limite)
+            if novo_limite < LIMITE_MINIMO_SAQUES_DIARIOS:
+                raise ValueError('Valor menor que 1')
+            LIMITE_SAQUES_DIARIOS = novo_limite
+            for conta in contas:
+                if isinstance(conta, ContaCorrente):
+                    conta.limite_saques = novo_limite
+            print('\nLimite de saques diário de todas as contas alterado.')
+            return True
+        except ValueError as err:
+            tentativas += 1
+            print(f"\nInsira um valor inteiro maior ou igual a {LIMITE_MINIMO_SAQUES_DIARIOS}")
+            print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+    return False
 
-# Reseta o contador de saques diário de uma única conta caso ela exista e retorna o resultado da busca
-def resetar_saques_diarios_uma_conta(*, agencia: str, numero_conta: str) -> bool:
-    conta_encontrada = False
-    for conta in contas:
-        if conta['agencia'] == agencia and str(conta['numero_conta']) == numero_conta:
-            conta['saques_hoje'] = 0
-            conta_encontrada = True
-    return conta_encontrada
+# Altera o limite de saques diários de uma única conta
+def alterar_limite_saques_diarios_uma_conta() -> bool:
+    if len(contas) == 0:
+        print("\nNenhuma conta encontrada. Recurso indisponível.")
+        return True
+    LIMITE_MINIMO_SAQUES_DIARIOS = 1
+    tentativas = 0
+    while tentativas < MAX_TENTATIVAS:
+        print('\nCaso deseje abortar a operação, insira "sair" em qualquer um dos campos solicitados.')
+        agencia = input('Insira o número da agência: ')
+        if agencia == 'sair':
+            return True
+        numero_conta = input('Insira o número da conta: ')
+        if numero_conta == 'sair':
+            return True
+        conta = encontrar_uma_conta(agencia=agencia, numero_conta=numero_conta)
+        if conta == 'conta nao encontrada':
+            tentativas += 1
+            print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+        else:
+            while tentativas < MAX_TENTATIVAS:
+                novo_limite = input(f'Insira o novo limite de saques diários(valor mínimo: {LIMITE_MINIMO_SAQUES_DIARIOS}): ')
+                if novo_limite == 'sair':
+                    return True
+                try:
+                    novo_limite = int(novo_limite)
+                    if novo_limite < LIMITE_MINIMO_SAQUES_DIARIOS:
+                        raise ValueError('Valor menor que 1')
+                    else:
+                        conta.limite_saques = novo_limite
+                        print(f"\nLimite de saques diários da Agencia: {agencia}, Conta: {numero_conta} alterado para {novo_limite}.")
+                        return True
+                except ValueError as err:
+                    tentativas += 1
+                    print(f"\nInsira um valor inteiro maior ou igual a {LIMITE_MINIMO_SAQUES_DIARIOS}")
+                    print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+    return False
 
 # Exclui uma conta desativada
 def excluir_conta(*, agencia: str, numero_conta: str) -> str:
@@ -406,21 +503,19 @@ def excluir_conta(*, agencia: str, numero_conta: str) -> str:
                 return 'conta deletada'
     return 'conta nao encontrada'
 
-# Exclui todas as contas de um usuário
-def excluir_todas_contas_de_um_usuario(cpf: str) -> None:
+# Exclui todas as contas desativadas de um usuario
+def excluir_todas_contas_desativadas_de_um_usuario(cliente: Cliente) -> None:
     # Percorre a lista de contas ao contrário para que a exclusão de uma conta não afete o índice da próxima conta a ser excluída
+    # Exclui as contas desativadas do usuário da lista geral de contas
     for i in range(len(contas) - 1, -1, -1):
-        if contas[i]['cpf'] == cpf:
+        if contas[i].cliente == cliente and not contas[i].ativa:
             del contas[i]
-    print(f'\nTodas as contas do usuário de CPF {cpf} foram excluídas.')
-# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # Exclui as contas desativadas do usuário da lista interna dele de contas
+    for j in range(len(cliente.contas) - 1, -1, -1):
+        if not cliente.contas[j].ativa:
+            del cliente.contas[j]
 
-def excluir_todas_contas_desativadas_de_um_usuario(cpf: str) -> None:
-    # Percorre a lista de contas ao contrário para que a exclusão de uma conta não afete o índice da próxima conta a ser excluída
-    for i in range(len(contas) - 1, -1, -1):
-        if contas[i]['cpf'] == cpf and not contas[i]['ativa']:
-            del contas[i]
-    print(f'\nTodas as contas desativadas do usuário de CPF {cpf} foram excluídas.')
+    print(f'\nTodas as contas desativadas do usuário {cliente.nome} foram excluídas.')
 
 # Exclui todas as contas desativadas
 def excluir_todas_contas_desativadas() -> None:
@@ -432,7 +527,7 @@ def excluir_todas_contas_desativadas() -> None:
 # Verifica se há contas desativadas
 def verificar_contas_desativadas() -> bool:
     for conta in contas:
-        if not conta['ativa']:
+        if not conta.ativa:
             return True
     return False
 
@@ -616,80 +711,45 @@ def gerenciar_contas(cliente: Cliente) -> None:
 # Função que permite o gerenciamento de usuários e contas por parte do banco
 def gerenciamento_institucional() -> None:
     LIMITE_MINIMO_SAQUE = 100.0
-    LIMITE_MINIMO_SAQUES_DIARIOS = 1
     global MAX_TENTATIVAS, LIMITE_SAQUE, LIMITE_SAQUES_DIARIOS
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
         ha_contas_desativadas = verificar_contas_desativadas()
         ha_usuarios_desativados = verificar_usuarios_desativados()
-        print('\n USUARIOS:')
-        for usuario in usuarios:
-            print(usuario)
-        print('\n CONTAS:')
-        for conta in contas:
-            print(conta)
+        print()
+        print(' GERENCIAMENTO INSTITUCIONAL '.center(100, 'X'))
+        print()
+        imprimir_clientes()
+        imprimir_contas()
         MENU_GERENCIAMENTO = f'''
-[1] Reinicializar contador de saques diário de todas as contas
-[2] Reinicializar contador de saques diário de uma única conta
+[1] Alterar o limite de saques diários de todas as contas
+[2] Alterar o limite de saques diários de uma conta {'- INDISPONÍVEL' if len(contas) == 0 else ''}
 [3] Excluir usuário desativado {'- INDISPONÍVEL' if not ha_usuarios_desativados else ''}
 [4] Excluir todos os usuários desativados {'- INDISPONÍVEL' if not ha_usuarios_desativados else ''}
 [5] Excluir todas as contas desativadas de um usuário {'- INDISPONÍVEL' if not ha_contas_desativadas else ''}
 [6] Excluir conta desativada {'- INDISPONÍVEL' if not ha_contas_desativadas else ''}
 [7] Excluir todas as contas desativadas {'- INDISPONÍVEL' if not ha_contas_desativadas else ''}
 [8] Alterar valor limite de saque
-[9] Alterar limite de saques diários
+[9] Alterar limite de saques diários +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 [10] Exibir extrato de uma conta {'' if len(contas) > 0 else '- INDISPONÍVEL'}
 [0] Sair
 '''
+        OPCOES = {
+            '1': alterar_limite_saques_diarios_geral,
+            '2': alterar_limite_saques_diarios_uma_conta,
+            '3': excluir_usuario_desativado,
+            '4': excluir_todos_usuarios_desativados,
+        }
         print(MENU_GERENCIAMENTO)
         opcao = input('Escolha uma das opções: ')
-        # Reinicializar contador de saques diário de todas as contas
-        if opcao == '1':
-            resetar_saques_diarios_todos()
-            tentativas = 0
-        # Reinicializar contador de saques diário de uma única conta
-        elif opcao == '2':
-            print('\nInsira as informações da conta:')
-            agencia = input('Agência: ')
-            numero_conta = input('Número da conta: ')
-            conta_encontrada = resetar_saques_diarios_uma_conta(agencia=agencia, numero_conta=numero_conta)
-            if conta_encontrada:
+        escolha = OPCOES.get(opcao, None)
+        if escolha != None:
+            acao_bem_sucedida = escolha()
+            if acao_bem_sucedida:
                 tentativas = 0
-                print(f'\nO contador de saques diário da conta {numero_conta}, Agencia {agencia} foi resetado.')
             else:
-                tentativas += 1
-                print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                print(f'\nConta não encontrada.')
-        # Excluir usuário desativado
-        elif opcao == '3':
-            if ha_usuarios_desativados:
-                cpf = input('Insira o cpf do usuário a ser excluído: ')
-                res = excluir_usuario(cpf)
-                if res == 'usuario excluido':
-                    tentativas = 0
-                    print(f'\nUsuário de CPF {cpf} excluído com sucesso.')
-                elif res == 'usuario ativo':
-                    tentativas += 1
-                    print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                    print(f'\nUsuário ativo. Usuários ativos não podem ser excluídos.')
-                elif res == 'usuario nao encontrado':
-                    tentativas += 1
-                    print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                    print(f'\nNenhum usuário encontrado com o CPF passado.')
-            else:
-                tentativas += 1
-                print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                print('Opção indisponível. Nenhum usuário desativado foi encontrado.')
-        # Excluir todos os usuários desativados
-        elif opcao == '4':
-            if ha_usuarios_desativados:
-                tentativas = 0
-                excluir_todos_usuarios_desativados()
-                print('\nTodos os usuários desativados e suas respectivas contas foram excluídos com sucesso.')
-            else:
-                tentativas += 1
-                print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                print('Opção indisponível. Nenhum usuário desativado foi encontrado.')
+                print('\nLimite de tentativas excedido.')
+                break
         # Excluir todas as contas desativadas de um usuário
         elif opcao == '5':
             if ha_contas_desativadas:
@@ -820,7 +880,6 @@ def atendimento_pessoa_fisica() -> None:
             cadastrar_usuario(cpf, 'CPF')
     
     print('\nObrigado por utilizar os nossos serviços!')
-    print(f"\n{''.center(100, 'X')}")
 
 # Atendimento de pessoas jurídicas
 def atendimento_pessoa_juridica() -> None:
@@ -843,7 +902,6 @@ def atendimento_pessoa_juridica() -> None:
             cadastrar_usuario(cnpj, 'CNPJ')
     
     print('\nObrigado por utilizar os nossos serviços!')
-    print(f"\n{''.center(100, 'X')}")
 
 # Inicio do programa
 def iniciar_atendimento() -> None:
@@ -856,6 +914,7 @@ Bem vindo(a) ao Banco X!
 '''
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
+        print(f"\n{''.center(100, 'X')}")
         print(MENSAGEM_INICIAL)
         opcao = input('Escolha uma das opções: ')
         if opcao == '1':
@@ -879,11 +938,5 @@ Bem vindo(a) ao Banco X!
     if tentativas >= MAX_TENTATIVAS:
         print('Número máximo de tentativas excedido.')
     print('\nObrigado por utilizar os nossos serviços!\n')
-   
+
 iniciar_atendimento()
-
-# class teste:
-#     def __init__(self) -> None:
-#         self.transacoes = [{'tipo': 'Saque', 'valor': 99.9, 'data': datetime.now()}, {'tipo': 'Deposito', 'valor': 299.9, 'data': datetime.now()}]
-
-# exibir_extrato(100.0, agencia='1', numero=1, titular='tonico', historico=teste())
