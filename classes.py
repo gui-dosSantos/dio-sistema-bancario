@@ -88,9 +88,17 @@ class ContaCorrente(Conta):
     def limite(self):
         return self._limite
     
+    @limite.setter
+    def limite(self, value):
+        self._limite = value
+    
     @property
     def limite_saques(self):
         return self._limite_saques
+    
+    @limite_saques.setter
+    def limite_saques(self, value):
+        self._limite_saques = value
     
     # Verifica quantos saques foram realizados no dia
     @property
