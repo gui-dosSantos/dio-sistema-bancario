@@ -13,7 +13,7 @@ def imprimir_contas():
         print()
     else:
         for conta in contas:
-            print(conta, conta.limite_saques)
+            print(conta)
 
 def imprimir_clientes():
     print('Clientes'.center(100, '-'))
@@ -22,6 +22,29 @@ def imprimir_clientes():
     else:
         for cliente in usuarios:
             print(cliente)
+
+def exibir_extrato_de_uma_conta() -> bool:
+    if len(contas) == 0:
+        print('\nNenhuma conta encontrada. Recurso indisponível.')
+        return True
+    tentativas = 0
+    while tentativas < MAX_TENTATIVAS:
+        print('\nInsira as informações da conta ou "sair" caso deseje abortar a operação:')
+        agencia = input('Agência: ')
+        if agencia == 'sair':
+            return True
+        numero_conta = input('Número da conta: ')
+        if numero_conta == 'sair':
+            return True
+        conta = encontrar_uma_conta(agencia=agencia, numero_conta=numero_conta)
+        if conta == 'conta nao encontrada':
+            tentativas += 1
+            print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+        else:
+            exibir_extrato(conta.saldo, agencia=conta.agencia, numero=conta.numero, titular=conta.cliente.nome, historico=conta.historico)
+            return True
+    return False
+
 
 # Formata e imprime o extrato
 def exibir_extrato(saldo: float, /, *, agencia: str, numero: int, titular: str, historico: Historico):
@@ -146,8 +169,7 @@ def solicitar_cpf() -> str:
         if cpf == 'sair':
             break
         # CPFs contem 11 números
-        # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        # Adicionar posteriormente uma função para verificar a validade do CPF através do calculo dos números verificadores
+        # TODO: Adicionar posteriormente uma função para verificar a validade do CPF através do calculo dos números verificadores
         elif len(cpf) == 11:
             try:
                 # Verifica se foram inseridos somente números
@@ -172,8 +194,7 @@ def solicitar_cnpj() -> str:
         if cnpj == 'sair':
             break
         # CNPJs contém 14 números
-        # ++++++++++++++++++++++++++++++++++++++++++++++++++
-        # Mesma coisa do cpf
+        # TODO: Adicionar posteriormente uma função para verificar a validade do CNPJ através do calculo dos números verificadores
         elif len(cnpj) == 14:
             try:
                 # Verifica se foram inseridos somente números
@@ -429,6 +450,72 @@ def listar_contas(contas_usuario: list[Conta]) -> str:
         res += f'Agência: {conta.agencia}, Conta: {conta.numero}\n'
     return res
 
+def alterar_limite_saque_geral() -> bool:
+    global LIMITE_SAQUE
+    LIMITE_MINIMO_SAQUE = 100
+    tentativas = 0
+    while tentativas < MAX_TENTATIVAS:
+        novo_limite = input(f'Insira o novo valor limite de saque(Valor mínimo: R$ {LIMITE_MINIMO_SAQUE:.2f}) ou "sair" caso deseje abortar a operação: R$ ')
+        if novo_limite == 'sair':
+            return True
+        try:
+            novo_limite = float(novo_limite)
+            if novo_limite < LIMITE_MINIMO_SAQUE:
+                raise ValueError('\nValor passado é menor que o limite mínimo.')
+            LIMITE_SAQUE = round(novo_limite, 2)
+            for conta in contas:
+                conta.limite = novo_limite
+            print(f'\nValor limite de saque atualizado para R$ {novo_limite:.2f}')
+            return True
+        except ValueError as err:
+            tentativas += 1
+            if err.args[0] == f"could not convert string to float: '{novo_limite}'":
+                print(f'\nInsira um número de ponto flutuante maior que {LIMITE_MINIMO_SAQUE}.')
+            else:
+                print(err.args[0])
+            print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+    return False
+
+def alterar_limite_saque_uma_conta() -> bool:
+    if len(contas) == 0:
+        print('\nNenhuma conta encontrada na base de dados. Recurso indisponível.')
+        return True
+    LIMITE_MINIMO_SAQUE = 100
+    tentativas = 0
+    while tentativas < MAX_TENTATIVAS:
+        print('\nInsira as informações da conta ou "sair" caso deseje abortar a operção a qualquer momento:')
+        agencia = input('Agência: ')
+        if agencia == 'sair':
+            return True
+        numero_conta = input('Número da conta: ')
+        if numero_conta == 'sair':
+            return True
+        conta = encontrar_uma_conta(agencia=agencia, numero_conta=numero_conta)
+        if conta == 'conta nao encontrada':
+            tentativas += 1
+            print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+            continue
+        while tentativas < MAX_TENTATIVAS:
+            novo_limite = input(f'\nInsira o novo valor limite de saque(Valor mínimo: R$ {LIMITE_MINIMO_SAQUE:.2f}): R$ ')
+            if novo_limite == 'sair':
+                return True
+            try:
+                novo_limite = float(novo_limite)
+                if novo_limite < LIMITE_MINIMO_SAQUE:
+                    raise ValueError('\nValor passado é menor que o limite mínimo.')
+                else:
+                    conta.limite = novo_limite
+                    print(f'\nValor limite de saque da Conta {conta.numero}, Agência {conta.agencia} atualizado para R$ {novo_limite:.2f}')
+                    return True
+            except ValueError as err:
+                tentativas += 1
+                if err.args[0] == f"could not convert string to float: '{novo_limite}'":
+                    print(f'\nInsira um número de ponto flutuante maior ou igual a {LIMITE_MINIMO_SAQUE}.')
+                else:
+                    print(err.args[0])
+                print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+    return False
+
 # Altera o limite de saques diário de todas as contas
 def alterar_limite_saques_diarios_geral() -> bool:
     global LIMITE_SAQUES_DIARIOS
@@ -500,9 +587,13 @@ def excluir_conta_desativada() -> bool:
         return True
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
-        print('\nInsira as informações da conta:')
+        print('\nInsira as informações da conta ou "sair" caso deseje abortar a operação:')
         agencia = input('Agência: ')
+        if agencia == 'sair':
+            return True
         numero_conta = input('Número da conta: ')
+        if numero_conta == 'sair':
+            return True
         conta_encontrada = False
         for i, conta in enumerate(contas):
             if conta.agencia == agencia and str(conta.numero) == numero_conta:
@@ -638,7 +729,8 @@ def cadastrar_usuario(cpf_cnpj: str, tipo: str) -> None:
 def movimentar_contas(*, conta_escolhida: Conta) -> str:
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
-        print('\nMovimentação de contas'.center(60, '-'))
+        print()
+        print('Movimentação de contas'.center(60, '-'))
         MENU_OPERACOES = f'''
 Agencia: {conta_escolhida.agencia} Conta: {conta_escolhida.numero}
 Saldo: R$ {conta_escolhida.saldo:.2f}
@@ -797,7 +889,7 @@ def gerenciamento_institucional() -> None:
 [6] Excluir conta desativada {'- INDISPONÍVEL' if not ha_contas_desativadas else ''}
 [7] Excluir todas as contas desativadas {'- INDISPONÍVEL' if not ha_contas_desativadas else ''}
 [8] Alterar valor limite de saque
-[9] Alterar limite de saques diários +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[9] Alterar valor limite de saque de uma conta {'' if len(contas) > 0 else '- INDISPONÍVEL'}
 [10] Exibir extrato de uma conta {'' if len(contas) > 0 else '- INDISPONÍVEL'}
 [0] Sair
 '''
@@ -808,10 +900,15 @@ def gerenciamento_institucional() -> None:
             '4': excluir_todos_usuarios_desativados,
             '5': encontrar_cliente_excluir_contas_desativadas,
             '6': excluir_conta_desativada,
-            '7': excluir_todas_contas_desativadas
+            '7': excluir_todas_contas_desativadas,
+            '8': alterar_limite_saque_geral,
+            '9': alterar_limite_saque_uma_conta,
+            '10': exibir_extrato_de_uma_conta
         }
         print(MENU_GERENCIAMENTO)
         opcao = input('Escolha uma das opções: ')
+        if opcao == '0':
+            break
         escolha = OPCOES.get(opcao, None)
         if escolha != None:
             acao_bem_sucedida = escolha()
@@ -820,59 +917,6 @@ def gerenciamento_institucional() -> None:
             else:
                 print('\nLimite de tentativas excedido.')
                 break
-        elif opcao == '8':
-            try:
-                valor = float(input('Insira o novo valor limite de saque: '))
-                # Não é permitido reduzir o valor limite de saque para menos de R$ 100.00
-                if valor < LIMITE_MINIMO_SAQUE:
-                    raise ValueError('novo valor muito baixo')
-                LIMITE_SAQUE = round(valor, 2)
-                print(f'\nValor limite de saque atualizado para R$ {valor:.2f}')
-                tentativas = 0
-            except ValueError as err:
-                tentativas += 1
-                print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                if err.args[0] == 'novo valor muito baixo':
-                    print(f'Não é permitido diminuir o valor limite de saque para menos de R$ {LIMITE_MINIMO_SAQUE:.2f}.')
-                else:
-                    print(f'Insira um valor numérico positivo e maior ou igual a {LIMITE_MINIMO_SAQUE:.2f}.')
-        # Alterar limite de saques diários
-        elif opcao == '9':
-            try:
-                valor = int(input('Insira o novo valor limite de saque: '))
-                # Não é permitido reduzir o limite de saques diários para menos de 1
-                if valor < LIMITE_MINIMO_SAQUES_DIARIOS:
-                    raise ValueError('novo valor muito baixo')
-                LIMITE_SAQUES_DIARIOS = valor
-                print(f'\nValor limite de saques diários atualizado para: {valor}')
-                tentativas = 0
-            except ValueError as err:
-                tentativas += 1
-                print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                if err.args[0] == 'novo valor muito baixo':
-                    print(f'Não é permitido diminuir o limite de saques diários para menos de {LIMITE_MINIMO_SAQUES_DIARIOS}.')
-                else:
-                    print('Insira um valor numérico inteiro positivo.')
-        # Exibir o extrato de uma conta
-        elif opcao == '10':
-            if len(contas) > 0:
-                print('\nInsira as informações da conta:')
-                agencia = input('Agência: ')
-                numero_conta = input('Número da conta: ')
-                res = encontrar_uma_conta(agencia=agencia, numero_conta=numero_conta)
-                if res == 'conta nao encontrada':
-                    tentativas += 1
-                    print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                    print('\nConta não encontrada.')
-                else:
-                    tentativas = 0
-                    exibir_extrato(res['saldo'], extrato = res['extrato'])
-            else:
-                tentativas += 1
-                print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                print('Opção Indisponível. Nenhuma conta encontrada.')
-        elif opcao == '0':
-            break
         # Input não corresponde a nenhuma das opções
         else:
             tentativas += 1
