@@ -576,11 +576,20 @@ def excluir_todas_contas_desativadas_de_um_usuario(cliente: Cliente) -> None:
     print(f'\nTodas as contas desativadas do usuário {cliente.nome} foram excluídas.')
 
 # Exclui todas as contas desativadas
-def excluir_todas_contas_desativadas() -> None:
+def excluir_todas_contas_desativadas() -> bool:
+    ha_contas_desativadas = verificar_contas_desativadas()
+    if not ha_contas_desativadas:
+        print('\nNenhuma conta desativada encontrada. Recurso indisponível.')
+        return True
     # Percorre a lista de contas ao contrário para que a exclusão de uma conta não afete o índice da próxima conta a ser excluída
+    print()
     for i in range(len(contas) - 1, -1, -1):
-        if not contas[i]['ativa']:
+        if not contas[i].ativa:
+            print(f"Agencia {contas[i].agencia}, Conta {contas[i].numero} excluída com sucesso")
+            contas[i].cliente.contas.remove(contas[i])
             del contas[i]
+    print('\nTodas as contas desativadas foram excluídas com sucesso.')
+    return True
 
 # Verifica se há contas desativadas
 def verificar_contas_desativadas() -> bool:
@@ -798,7 +807,8 @@ def gerenciamento_institucional() -> None:
             '3': excluir_usuario_desativado,
             '4': excluir_todos_usuarios_desativados,
             '5': encontrar_cliente_excluir_contas_desativadas,
-            '6': excluir_conta_desativada
+            '6': excluir_conta_desativada,
+            '7': excluir_todas_contas_desativadas
         }
         print(MENU_GERENCIAMENTO)
         opcao = input('Escolha uma das opções: ')
@@ -810,17 +820,6 @@ def gerenciamento_institucional() -> None:
             else:
                 print('\nLimite de tentativas excedido.')
                 break
-        # Excluir todas as contas desativadas
-        elif opcao == '7':
-            if ha_contas_desativadas:
-                tentativas = 0
-                excluir_todas_contas_desativadas()
-                print('\nTodas as contas desativadas foram excluídas com sucesso.')
-            else:
-                tentativas += 1
-                print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                print('Opção indisponível. Nenhuma conta desativada foi encontrada.')
-        # Alterar valor limite de saque
         elif opcao == '8':
             try:
                 valor = float(input('Insira o novo valor limite de saque: '))
@@ -919,7 +918,7 @@ def atendimento_pessoa_juridica() -> None:
                 if cliente_reativado:
                     gerenciar_contas(cliente)
             else:
-                gerenciar_contas(cnpj)
+                gerenciar_contas(cliente)
         else: 
             # Cadastrar cliente
             cadastrar_usuario(cnpj, 'CNPJ')
