@@ -493,15 +493,37 @@ def alterar_limite_saques_diarios_uma_conta() -> bool:
     return False
 
 # Exclui uma conta desativada
-def excluir_conta(*, agencia: str, numero_conta: str) -> str:
-    for i, conta in enumerate(contas):
-        if conta['agencia'] == agencia and str(conta['numero_conta']) == numero_conta:
-            if conta['ativa']:
-                return 'conta ativa'
-            else:
-                del contas[i]
-                return 'conta deletada'
-    return 'conta nao encontrada'
+def excluir_conta_desativada() -> bool:
+    ha_contas_desativadas = verificar_contas_desativadas()
+    if not ha_contas_desativadas:
+        print('\nNenhuma conta desativada encontrada. Recurso indisponível.')
+        return True
+    tentativas = 0
+    while tentativas < MAX_TENTATIVAS:
+        print('\nInsira as informações da conta:')
+        agencia = input('Agência: ')
+        numero_conta = input('Número da conta: ')
+        conta_encontrada = False
+        for i, conta in enumerate(contas):
+            if conta.agencia == agencia and str(conta.numero) == numero_conta:
+                conta_encontrada = True
+                if conta.ativa:
+                    tentativas += 1
+                    print(f'\nConta ativa. Contas ativas não podem ser excluídas.')
+                    print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+                    break
+                else:
+                    # Remove a conta da lista interna do cliente e da lista geral
+                    conta.cliente.contas.remove(conta)
+                    del contas[i]
+                    print(f'\nConta {numero_conta}, Agencia {agencia} foi excluída com sucesso.')
+                    return True
+        if not conta_encontrada:    
+            tentativas += 1
+            print(f'\nConta não encontrada.')
+            print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+    
+    return False
 
 def encontrar_cliente_excluir_contas_desativadas() -> bool:
     ha_contas_desativadas = verificar_contas_desativadas()
@@ -776,6 +798,7 @@ def gerenciamento_institucional() -> None:
             '3': excluir_usuario_desativado,
             '4': excluir_todos_usuarios_desativados,
             '5': encontrar_cliente_excluir_contas_desativadas,
+            '6': excluir_conta_desativada
         }
         print(MENU_GERENCIAMENTO)
         opcao = input('Escolha uma das opções: ')
@@ -787,43 +810,6 @@ def gerenciamento_institucional() -> None:
             else:
                 print('\nLimite de tentativas excedido.')
                 break
-        # Excluir todas as contas desativadas de um usuário
-        # elif opcao == '5':
-        #     if ha_contas_desativadas:
-        #         cpf = input('Insira o cpf do usuário cujas contas desativadas devem ser excluídas: ')
-        #         if verificar_cpf(cpf):
-        #             tentativas = 0
-        #             excluir_todas_contas_desativadas_de_um_usuario(cpf)
-        #         else:
-        #             tentativas += 1
-        #             print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-        #             print('Nenhum usuário com o CPF passado foi encontrado.')
-        #     else:
-        #         tentativas += 1
-        #         print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-        #         print('Opção indisponível. Nenhuma conta desativada foi encontrada.')
-        # Excluir conta desativada
-        elif opcao == '6':
-            if ha_contas_desativadas:
-                print('\nInsira as informações da conta:')
-                agencia = input('Agência: ')
-                numero_conta = input('Número da conta: ')
-                res = excluir_conta(agencia=agencia, numero_conta=numero_conta)
-                if res == 'conta nao encontrada':
-                    tentativas += 1
-                    print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                    print(f'\nConta não encontrada.')
-                elif res == 'conta ativa':
-                    tentativas += 1
-                    print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                    print(f'\nConta ativa. Contas ativas não podem ser excluídas.')
-                elif res == 'conta deletada':
-                    tentativas = 0
-                    print(f'\nConta {numero_conta}, Agencia {agencia} foi excluída com sucesso.')
-            else:
-                tentativas += 1
-                print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
-                print('Opção indisponível. Nenhuma conta desativada foi encontrada.')
         # Excluir todas as contas desativadas
         elif opcao == '7':
             if ha_contas_desativadas:
