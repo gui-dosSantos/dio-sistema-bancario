@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from classes import Conta, ContaCorrente, Deposito, Saque, SaqueFinal, Historico, Cliente, PessoaFisica, PessoaJuridica
+from classes import Conta, ContaCorrente, Deposito, Saque, SaqueFinal, Historico, Cliente, PessoaFisica, PessoaJuridica, ContaIterador
 
 usuarios = []
 contas = []
@@ -12,7 +12,7 @@ def imprimir_contas():
     if len(contas) == 0:
         print()
     else:
-        for conta in contas:
+        for conta in ContaIterador(contas, extendido=True):
             print(conta)
 
 def imprimir_clientes():
@@ -41,8 +41,8 @@ def exibir_extrato_de_uma_conta() -> bool:
             tentativas += 1
             print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
         else:
-            exibir_extrato(conta.saldo, agencia=conta.agencia, numero=conta.numero, titular=conta.cliente.nome, historico=conta.historico)
-            return True
+            res = menu_extrato(conta_escolhida=conta)
+            return res
     return False
 
 
@@ -52,8 +52,44 @@ def exibir_extrato(saldo: float, /, *, agencia: str, numero: int, titular: str, 
     print(f'Número da conta: {numero}')
     print(f'Titular: {titular}')
     print(f"{' EXTRATO '.center(60, '=')}\n")
-    for entrada in historico.transacoes:
-        print(f"{entrada['data'].strftime('%d-%m-%Y %H:%M:%S')} {entrada['tipo']}: R$ {entrada['valor']:.2f}")
+    extrato_vazio = True
+    for entrada in historico.gerador_de_relatorio():
+        extrato_vazio = False
+        print(f"{entrada.data.strftime('%d-%m-%Y %H:%M:%S')} {entrada.tipo}: R$ {entrada.valor:.2f}")
+    if extrato_vazio:
+        print('Nenhuma movimentação foi realizada nesta conta.')
+    print()
+    print(f'Saldo: R$ {saldo:.2f}\n')
+    print(''.center(60, '='))
+
+# Formata e imprime os saques
+def exibir_saques(saldo: float, /, *, agencia: str, numero: int, titular: str, historico: Historico):
+    print(f'\nAgencia: {agencia}')
+    print(f'Número da conta: {numero}')
+    print(f'Titular: {titular}')
+    print(f"{' RELATÓRIO - SAQUES '.center(60, '=')}\n")
+    extrato_vazio = True
+    for entrada in historico.gerador_de_relatorio('Saque'):
+        extrato_vazio = False
+        print(f"{entrada.data.strftime('%d-%m-%Y %H:%M:%S')} {entrada.tipo}: R$ {entrada.valor:.2f}")
+    if extrato_vazio:
+        print('Nenhum saque foi realizado nesta conta.')
+    print()
+    print(f'Saldo: R$ {saldo:.2f}\n')
+    print(''.center(60, '='))
+
+    # Formata e imprime os depositos
+def exibir_depositos(saldo: float, /, *, agencia: str, numero: int, titular: str, historico: Historico):
+    print(f'\nAgencia: {agencia}')
+    print(f'Número da conta: {numero}')
+    print(f'Titular: {titular}')
+    print(f"{' RELATÓRIO - DEPOSITOS '.center(60, '=')}\n")
+    extrato_vazio = True
+    for entrada in historico.gerador_de_relatorio('Depósito'):
+        extrato_vazio = False
+        print(f"{entrada.data.strftime('%d-%m-%Y %H:%M:%S')} {entrada.tipo}: R$ {entrada.valor:.2f}")
+    if extrato_vazio:
+        print('Nenhum depósito foi realizado nesta conta.')
     print()
     print(f'Saldo: R$ {saldo:.2f}\n')
     print(''.center(60, '='))
@@ -446,8 +482,8 @@ def encontrar_uma_conta(*, agencia: str, numero_conta: str, lista_contas: list[C
 # Pega uma lista de contas e formata em uma string
 def listar_contas(contas_usuario: list[Conta]) -> str:
     res = ''
-    for conta in contas_usuario:
-        res += f'Agência: {conta.agencia}, Conta: {conta.numero}\n'
+    for conta in ContaIterador(contas_usuario):
+        res += conta
     return res
 
 def alterar_limite_saque_geral() -> bool:
@@ -734,9 +770,10 @@ def movimentar_contas(*, conta_escolhida: Conta) -> str:
         MENU_OPERACOES = f'''
 Agencia: {conta_escolhida.agencia} Conta: {conta_escolhida.numero}
 Saldo: R$ {conta_escolhida.saldo:.2f}
+Operações Restantes Hoje: {conta_escolhida.limite_transacoes - conta_escolhida.transacoes_hoje}
 
-[1] Saque {'- INDISPONÍVEL' if conta_escolhida.saldo <= 0 or conta_escolhida.saques_hoje >= conta_escolhida.limite_saques else ''}
-[2] Depósito
+[1] Saque {'- INDISPONÍVEL' if conta_escolhida.saldo <= 0 or conta_escolhida.saques_hoje >= conta_escolhida.limite_saques or conta_escolhida.transacoes_hoje >= conta_escolhida.limite_transacoes else ''}
+[2] Depósito {'- INDISPONÍVEL' if conta_escolhida.transacoes_hoje >= conta_escolhida.limite_transacoes else ''}
 [3] Extrato
 [0] Sair
 '''
@@ -744,16 +781,20 @@ Saldo: R$ {conta_escolhida.saldo:.2f}
         opcao = input('Escolha uma das opções: ')
         # Efetuar saque
         if opcao == '1':
+            if conta_escolhida.transacoes_hoje >= conta_escolhida.limite_transacoes:
+                print(f'\nLimite de {conta_escolhida.limite_transacoes} transações diárias atingido, operação não efetuada.')
+                tentativas += 1
+                print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
             # Não permite mais saques do que o limite diário da conta
-            if conta_escolhida.saques_hoje >= conta_escolhida.limite_saques:
+            elif conta_escolhida.saques_hoje >= conta_escolhida.limite_saques:
                 print('\nLimite de saques diários atingido, operação não efetuada.')
                 tentativas += 1
-                print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+                print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
             # Não permite efetuar saques em contas sem saldo
             elif conta_escolhida.saldo <= 0:
                 print('\nSaldo insuficiente.')
                 tentativas += 1
-                print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+                print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
             else:
                 sucesso = gerenciar_tentativas_saque(conta_escolhida)
                 if sucesso:
@@ -763,15 +804,23 @@ Saldo: R$ {conta_escolhida.saldo:.2f}
 
         # Efetuar depósito
         elif opcao == '2':
-            sucesso = gerenciar_tentativas_deposito(conta_escolhida)
-            if sucesso:
-                tentativas = 0
+            if conta_escolhida.transacoes_hoje >= conta_escolhida.limite_transacoes:
+                print(f'\nLimite de {conta_escolhida.limite_transacoes} transações diárias atingido, operação não efetuada.')
+                tentativas += 1
+                print(f'Tentativas Restantes: {MAX_TENTATIVAS - tentativas}')
             else:
-                return 'tentativas excedidas'
+                sucesso = gerenciar_tentativas_deposito(conta_escolhida)
+                if sucesso:
+                    tentativas = 0
+                else:
+                    return 'tentativas excedidas'
         # Imprimir extrato
         elif opcao == '3':
-            exibir_extrato(conta_escolhida.saldo, agencia=conta_escolhida.agencia, numero=conta_escolhida.numero, titular=conta_escolhida.cliente.nome, historico=conta_escolhida.historico)
-            tentativas = 0
+            sucesso = menu_extrato(conta_escolhida=conta_escolhida)
+            if sucesso:
+                tentativas = 0
+            else: 
+                tentativas = MAX_TENTATIVAS
         # SAIR
         elif opcao == '0':
             break
@@ -783,6 +832,40 @@ Saldo: R$ {conta_escolhida.saldo:.2f}
             return 'tentativas excedidas'
                 
     return 'operacao bem sucedida'
+
+def menu_extrato(*, conta_escolhida: Conta):
+    tentativas = 0
+    while tentativas < MAX_TENTATIVAS:
+        print()
+        print('Menu Extrato'.center(60, '-'))
+        MENU_OPERACOES = f'''
+Agencia: {conta_escolhida.agencia} Conta: {conta_escolhida.numero}
+Saldo: R$ {conta_escolhida.saldo:.2f}
+
+[1] Extrato completo
+[2] Somente saques
+[3] Somente depósitos
+[0] Sair
+'''
+        print(MENU_OPERACOES)
+        opcao = input('Escolha uma das opções: ')
+        if opcao == '1':
+            exibir_extrato(conta_escolhida.saldo, agencia=conta_escolhida.agencia, numero=conta_escolhida.numero, titular=conta_escolhida.cliente.nome, historico=conta_escolhida.historico)
+            tentativas = 0
+        elif opcao == '2':
+            exibir_saques(conta_escolhida.saldo, agencia=conta_escolhida.agencia, numero=conta_escolhida.numero, titular=conta_escolhida.cliente.nome, historico=conta_escolhida.historico)
+            tentativas = 0
+        elif opcao == '3':
+            exibir_depositos(conta_escolhida.saldo, agencia=conta_escolhida.agencia, numero=conta_escolhida.numero, titular=conta_escolhida.cliente.nome, historico=conta_escolhida.historico)
+            tentativas = 0
+        elif opcao == '0':
+            return True
+        else:
+            tentativas += 1
+            print(f'\nTentativas Restantes: {MAX_TENTATIVAS - tentativas}')
+
+    return False
+
 
 # Função responsável pelas opções do menu de gerenciamento de contas, ou seja, criação, movimentação e desativação de contas corrente e desativação de usuário
 def gerenciar_contas(cliente: Cliente) -> None:
