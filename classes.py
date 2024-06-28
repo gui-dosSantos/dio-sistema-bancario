@@ -1,8 +1,37 @@
 from datetime import datetime, date
 from abc import ABC, abstractmethod
+import functools
 
 LIMITE_SAQUE = 500.00
 LIMITE_SAQUES_DIARIOS = 3
+
+def decorador_de_log(func):
+    @functools.wraps(func)
+    def envelope(*args, **kwargs):
+        func(*args, **kwargs)
+        print(f"\nOperação: {args[0].__class__.__name__}\nHorário: {datetime.now().strftime("%d/%m/%Y, %H:%M:%S")}")
+    
+    return envelope
+
+class ContaIterador:
+    def __init__(self, contas,/ , *, extendido: bool = False) -> None:
+        self.contas = contas
+        self.contador = 0
+        self.extendido = extendido
+    
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        try:
+            conta = self.contas[self.contador]
+            self.contador += 1
+            if self.extendido:
+                return f'Agencia: {conta.agencia} - Número: {conta.numero} - Titular: {conta.cliente.nome} - Saldo: R$ {conta.saldo:.2f} - Ativa: {conta.ativa}'
+            else:
+                return f'Agência: {conta.agencia}, Conta: {conta.numero}, Saldo: R$ {conta.saldo:.2f}\n'
+        except IndexError:
+            raise StopIteration    
 
 class Conta:
     def __init__(self, *, numero: int, cliente) -> None:
@@ -12,6 +41,7 @@ class Conta:
         self._cliente = cliente
         self._historico = Historico()
         self._ativa = True
+        self._limite_transacoes = 10
     
     @property
     def saldo(self):
@@ -37,6 +67,18 @@ class Conta:
     def ativa(self):
         return self._ativa
     
+    @property
+    def limite_transacoes(self):
+        return self._limite_transacoes
+
+    @property
+    def transacoes_hoje(self):
+        transacoes_hoje = 0
+        for transacao in self.historico.transacoes:
+            if transacao.data.date() == date.today():
+                transacoes_hoje += 1
+        return transacoes_hoje
+
     @classmethod
     def nova_conta(cls, cliente, numero: int):
         return cls(numero=numero, cliente=cliente)
@@ -105,7 +147,7 @@ class ContaCorrente(Conta):
     def saques_hoje(self):
         saques_hoje = 0
         for transacao in self.historico.transacoes:
-            if transacao['tipo'] == 'Saque' and transacao['data'].date() == date.today():
+            if transacao.tipo == 'Saque' and transacao.data.date() == date.today():
                 saques_hoje += 1
         return saques_hoje
     
@@ -131,29 +173,55 @@ class Transacao(ABC):
 class Deposito(Transacao):
     def __init__(self, valor: float) -> None:
         self._valor = valor
+        self._tipo = 'Depósito'
+        self._data = datetime.now()
 
     @property
     def valor(self):
         return self._valor
+    
+    @property
+    def tipo(self):
+        return self._tipo
+    
+    @property
+    def data(self):
+        return self._data
 
+    @decorador_de_log
     def registrar(self, conta: Conta):
-        conta.historico.adicionar_transacao(self, 'Depósito')
+        conta.historico.adicionar_transacao(self)
 
 class Saque(Transacao):
-    def __init__(self, valor: float) -> None:
+    def __init__(self, valor: float, tipo: str = 'Saque') -> None:
         self._valor = valor
+        self._tipo = tipo
+        self._data = datetime.now()
 
     @property
     def valor(self):
         return self._valor
+    
+    @property
+    def tipo(self):
+        return self._tipo
+    
+    @property
+    def data(self):
+        return self._data
 
+    @decorador_de_log
     def registrar(self, conta: Conta):
-        conta.historico.adicionar_transacao(self, 'Saque') 
+        conta.historico.adicionar_transacao(self) 
 
 # Saque de encerramento de conta que zera o saldo
 class SaqueFinal(Saque):
+    def __init__(self, valor: float) -> None:
+        super().__init__(valor, 'Saque Final')
+
+    @decorador_de_log
     def registrar(self, conta: Conta):
-        conta.historico.adicionar_transacao(self, 'Saque Final')
+        conta.historico.adicionar_transacao(self)
 
 class Historico:
     def __init__(self) -> None:
@@ -163,13 +231,15 @@ class Historico:
     def transacoes(self):
         return self._transacoes
 
-    def adicionar_transacao(self, transacao: Transacao, tipo: str):
-        entrada = {
-            'tipo': tipo,
-            'valor': transacao.valor,
-            'data': datetime.now()
-        }
-        self._transacoes.append(entrada)
+    def adicionar_transacao(self, transacao: Transacao):
+        self._transacoes.append(transacao)
+
+    def gerador_de_relatorio(self, tipo: str = ''):
+        for transacao in self.transacoes:
+            if tipo == '':
+                yield transacao
+            elif transacao.tipo == tipo:
+                yield transacao
 
 class Cliente:
     def __init__(self, endereco: str) -> None:
@@ -226,4 +296,5 @@ class PessoaJuridica(Cliente):
         return self._nome
     
     def __str__(self):
-        return f'Nome: {self.nome} - CNPJ: {self.cnpj}\nEndereço: {self.endereco}'
+        return f'Nome: {self.nome} - CNPJ: {self.cnpj} - Ativo: {self.ativo}'
+    
