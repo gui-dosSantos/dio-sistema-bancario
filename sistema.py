@@ -54,8 +54,9 @@ def exibir_extrato(saldo: float, /, *, agencia: str, numero: int, titular: str, 
     print(f"{' EXTRATO '.center(60, '=')}\n")
     extrato_vazio = True
     for entrada in historico.gerador_de_relatorio():
+        print(f"{entrada.data.strftime('%d/%m/%Y %H:%M')} {entrada.tipo}: R$ {entrada.valor:.2f}")
+    else:
         extrato_vazio = False
-        print(f"{entrada.data.strftime('%d-%m-%Y %H:%M:%S')} {entrada.tipo}: R$ {entrada.valor:.2f}")
     if extrato_vazio:
         print('Nenhuma movimentação foi realizada nesta conta.')
     print()
@@ -70,8 +71,9 @@ def exibir_saques(saldo: float, /, *, agencia: str, numero: int, titular: str, h
     print(f"{' RELATÓRIO - SAQUES '.center(60, '=')}\n")
     extrato_vazio = True
     for entrada in historico.gerador_de_relatorio('Saque'):
+        print(f"{entrada.data.strftime('%d/%m/%Y %H:%M')} {entrada.tipo}: R$ {entrada.valor:.2f}")
+    else:
         extrato_vazio = False
-        print(f"{entrada.data.strftime('%d-%m-%Y %H:%M:%S')} {entrada.tipo}: R$ {entrada.valor:.2f}")
     if extrato_vazio:
         print('Nenhum saque foi realizado nesta conta.')
     print()
@@ -86,8 +88,9 @@ def exibir_depositos(saldo: float, /, *, agencia: str, numero: int, titular: str
     print(f"{' RELATÓRIO - DEPOSITOS '.center(60, '=')}\n")
     extrato_vazio = True
     for entrada in historico.gerador_de_relatorio('Depósito'):
+        print(f"{entrada.data.strftime('%d/%m/%Y %H:%M')} {entrada.tipo}: R$ {entrada.valor:.2f}")
+    else:
         extrato_vazio = False
-        print(f"{entrada.data.strftime('%d-%m-%Y %H:%M:%S')} {entrada.tipo}: R$ {entrada.valor:.2f}")
     if extrato_vazio:
         print('Nenhum depósito foi realizado nesta conta.')
     print()
