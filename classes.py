@@ -234,9 +234,9 @@ class Historico:
     def adicionar_transacao(self, transacao: Transacao):
         self._transacoes.append(transacao)
 
-    def gerador_de_relatorio(self, tipo: str = ''):
+    def gerador_de_relatorio(self, tipo: str = None):
         for transacao in self.transacoes:
-            if tipo == '':
+            if tipo == None:
                 yield transacao
             elif transacao.tipo == tipo:
                 yield transacao
