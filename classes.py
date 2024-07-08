@@ -11,16 +11,16 @@ LIMITE_SAQUES_DIARIOS = 3
 def decorador_de_log(func):
     @functools.wraps(func)
     def envelope(*args, **kwargs):
-        data_hora = args[0].data.strftime('%d/%m/%Y %H:%M:%S')
-        nome_func = f'{args[0].__class__.__name__}.{func.__name__}'
-        retorno = func(*args, **kwargs)
+        data_hora = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+        nome_func = f'{func.__name__}'
+        resultado = func(*args, **kwargs)
         try:
             with open(ROOT_PATH / 'log.txt', 'a', encoding='utf-8') as log:
-                log.write(f'{data_hora} - {nome_func}{args} -> {retorno}\n')
+                log.write(f'{data_hora} - Função: {nome_func}, args: {args}, kwargs: {kwargs} -> {repr(resultado)}\n')
         except IOError as err:
             print('Erro ao abrir o arquivo.')
-
-        print(f"\nOperação: {args[0].tipo}\nHorário: {data_hora}")
+        
+        return resultado
 
     return envelope
 
@@ -44,6 +44,7 @@ class ContaIterador:
         except IndexError:
             raise StopIteration    
 
+# TODO: Adicionar um setter para _limite_transacoes
 class Conta:
     def __init__(self, *, agencia: str = '0001', numero: int, saldo: float = 0.0, cliente, limite_transacoes: int = 10) -> None:
         self._saldo = saldo
@@ -89,11 +90,8 @@ class Conta:
             if transacao.data.date() == date.today():
                 transacoes_hoje += 1
         return transacoes_hoje
-
-    @classmethod
-    def nova_conta(cls, cliente, numero: int):
-        return cls(numero=numero, cliente=cliente)
     
+    @decorador_de_log
     def desativar_conta(self):
         self._ativa = False
     
@@ -145,6 +143,7 @@ class ContaCorrente(Conta):
         return self._limite
     
     @limite.setter
+    @decorador_de_log
     def limite(self, value):
         self._limite = value
     
@@ -153,6 +152,7 @@ class ContaCorrente(Conta):
         return self._limite_saques
     
     @limite_saques.setter
+    @decorador_de_log
     def limite_saques(self, value):
         self._limite_saques = value
     
@@ -272,9 +272,11 @@ class Cliente:
     def adicionar_conta(self, conta: Conta):
         self.contas.append(conta)
 
+    @decorador_de_log
     def desativar_conta_cliente(self):
         self.ativo = False
 
+    @decorador_de_log
     def reativar_conta_cliente(self):
         self.ativo = True
 
@@ -300,6 +302,9 @@ class PessoaFisica(Cliente):
     def data_nascimento(self):
         return self._data_nascimento
     
+    def __repr__(self):
+        return f'Pessoa Física - \"Nome: {self.nome} - CPF: {self.cpf}\"'
+    
     def __str__(self):
         return f'Nome: {self.nome} - CPF: {self.cpf} - Ativo: {self.ativo}'
 
@@ -317,6 +322,8 @@ class PessoaJuridica(Cliente):
     def nome(self):
         return self._nome
     
+    def __repr__(self):
+        return f'Pessoa Jurídica - \"Nome: {self.nome} - CNPJ: {self.cnpj}\"'
+    
     def __str__(self):
         return f'Nome: {self.nome} - CNPJ: {self.cnpj} - Ativo: {self.ativo}'
-    
