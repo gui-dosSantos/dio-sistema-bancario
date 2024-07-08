@@ -45,14 +45,14 @@ class ContaIterador:
             raise StopIteration    
 
 class Conta:
-    def __init__(self, *, numero: int, cliente) -> None:
-        self._saldo = 0
+    def __init__(self, *, agencia: str = '0001', numero: int, saldo: float = 0.0, cliente, limite_transacoes: int = 10) -> None:
+        self._saldo = saldo
         self._numero = numero
-        self._agencia = '0001'
+        self._agencia = agencia
         self._cliente = cliente
         self._historico = Historico()
         self._ativa = True
-        self._limite_transacoes = 10
+        self._limite_transacoes = limite_transacoes
     
     @property
     def saldo(self):
@@ -135,8 +135,8 @@ class Conta:
 class ContaCorrente(Conta):
     global LIMITE_SAQUE, LIMITE_SAQUES_DIARIOS
 
-    def __init__(self, *, numero: int, cliente, limite: float = LIMITE_SAQUE, limite_saques: int = LIMITE_SAQUES_DIARIOS) -> None:
-        super().__init__(numero=numero, cliente=cliente)
+    def __init__(self, *, agencia: str = '0001', numero: int, saldo: float = 0.0, cliente, limite_transacoes: int = 10, limite: float = LIMITE_SAQUE, limite_saques: int = LIMITE_SAQUES_DIARIOS) -> None:
+        super().__init__(agencia=agencia, numero=numero, saldo=saldo, cliente=cliente, limite_transacoes=limite_transacoes)
         self._limite = limite
         self._limite_saques = limite_saques
 
@@ -186,10 +186,10 @@ class Transacao(ABC):
         pass
 
 class Deposito(Transacao):
-    def __init__(self, valor: float) -> None:
+    def __init__(self, valor: float, *, data: datetime = datetime.now()) -> None:
         self._valor = valor
         self._tipo = 'Depósito'
-        self._data = datetime.now()
+        self._data = data
 
     @property
     def valor(self):
@@ -211,10 +211,10 @@ class Deposito(Transacao):
         return f'Transação: \"{self.tipo}: {self.valor}\"'
 
 class Saque(Transacao):
-    def __init__(self, valor: float, tipo: str = 'Saque') -> None:
+    def __init__(self, valor: float, tipo: str = 'Saque', *, data: datetime = datetime.now()) -> None:
         self._valor = valor
         self._tipo = tipo
-        self._data = datetime.now()
+        self._data = data
 
     @property
     def valor(self):
@@ -237,8 +237,8 @@ class Saque(Transacao):
 
 # Saque de encerramento de conta que zera o saldo
 class SaqueFinal(Saque):
-    def __init__(self, valor: float) -> None:
-        super().__init__(valor, 'Saque Final')
+    def __init__(self, valor: float, *, data: datetime = datetime.now()) -> None:
+        super().__init__(valor, 'Saque Final', data=data)
 
     @decorador_de_log
     def registrar(self, conta: Conta):
