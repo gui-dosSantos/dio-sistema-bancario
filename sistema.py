@@ -1,6 +1,6 @@
 from pathlib import Path
 from datetime import datetime, date
-from classes import Conta, ContaCorrente, Deposito, Saque, SaqueFinal, Historico, Cliente, PessoaFisica, PessoaJuridica, ContaIterador
+from classes import Conta, ContaCorrente, Deposito, Saque, SaqueFinal, Historico, Cliente, PessoaFisica, PessoaJuridica, ContaIterador, decorador_de_log
 import csv
 
 ROOT_PATH = Path(__file__).parent
@@ -263,12 +263,13 @@ def carregar_contas():
                     nova_conta.desativar_conta()
                 carregar_historico(nova_conta, conta['historico'])
                 contas.append(nova_conta)
-                cliente.contas.append(nova_conta)
+                cliente.adicionar_conta(nova_conta)
     except FileNotFoundError as err:
         print('Arquivo de contas não encontrado.')
 
 
 # Lida com a criação de um novo usuário que será posteriormente adicionado a lista de usuários do banco
+@decorador_de_log
 def criar_usuario_pf(cpf: str) -> PessoaFisica | None:
     nome = input('Insira o seu nome: ')
     data_nascimento = solicitar_data_nascimento()
@@ -291,6 +292,7 @@ def criar_usuario_pf(cpf: str) -> PessoaFisica | None:
     novo_usuario = PessoaFisica(endereco=endereco, cpf=cpf, nome=nome, data_nascimento=data_nascimento)
     return novo_usuario
 
+@decorador_de_log
 def criar_usuario_pj(cnpj: str) -> PessoaJuridica | None:
     nome = input('Insira o seu nome ou nome fantasia: ')
     print("Insira seu endereço: ")
@@ -492,6 +494,10 @@ def verificar_usuarios_desativados() -> bool:
                 
 # Exclui um usuário desativado
 def excluir_usuario_desativado() -> bool:
+    @decorador_de_log
+    def excluir_usuario(index):
+        del usuarios[index]
+    
     ha_usuarios_desativados = verificar_usuarios_desativados()
     if not ha_usuarios_desativados:
         print('\nNenhum usuário desativado encontrado. Recurso indisponível.')
@@ -518,7 +524,7 @@ def excluir_usuario_desativado() -> bool:
                 raise ValueError('\nClientes ativos não podem ser excluídos.')
             else:
                 excluir_todas_contas_desativadas_de_um_usuario(usuarios[index])
-                del usuarios[index]
+                excluir_usuario(index)
                 print('\nUsuário excluído com sucesso.')
                 return True
         except ValueError as err:
@@ -531,6 +537,7 @@ def excluir_usuario_desativado() -> bool:
     return False
 
 # Exclui todos os usuários desativados e suas respectivas contas. Sempre retorna True
+@decorador_de_log
 def excluir_todos_usuarios_desativados() -> bool:
     ha_usuarios_desativados = verificar_usuarios_desativados()
     if not ha_usuarios_desativados:
@@ -549,6 +556,7 @@ def excluir_todos_usuarios_desativados() -> bool:
     return True
 
 # Cria uma nova conta corrente associada a um usuário já existente
+@decorador_de_log
 def criar_conta_corrente(cliente: Cliente) -> ContaCorrente:
     # Optei por determinar o número da nova conta baseado no número da última conta da lista ao invés do tamanho da lista(que diminuiria em caso de exclusão de uma conta,
     # levando a criação de contas com o mesmo número)
@@ -560,7 +568,7 @@ def criar_conta_corrente(cliente: Cliente) -> ContaCorrente:
 def registrar_nova_conta(cliente: Cliente) -> None:
     nova_conta = criar_conta_corrente(cliente)
     contas.append(nova_conta)
-    cliente.contas.append(nova_conta)
+    cliente.adicionar_conta(nova_conta)
     print(f'\nNova conta corrente criada: Agência: {nova_conta.agencia}, Conta: {nova_conta.numero}')
 
 # Lida com a desativação de contas, que é zerada caso ainda possua saldo
@@ -599,7 +607,12 @@ def listar_contas(contas_usuario: list[Conta]) -> str:
     return res
 
 def alterar_limite_saque_geral() -> bool:
-    global LIMITE_SAQUE
+    
+    @decorador_de_log
+    def atualizar_limite_saque(novo_limite):
+        global LIMITE_SAQUE
+        LIMITE_SAQUE = round(novo_limite, 2)
+
     LIMITE_MINIMO_SAQUE = 100
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
@@ -610,10 +623,10 @@ def alterar_limite_saque_geral() -> bool:
             novo_limite = float(novo_limite)
             if novo_limite < LIMITE_MINIMO_SAQUE:
                 raise ValueError('\nValor passado é menor que o limite mínimo.')
-            LIMITE_SAQUE = round(novo_limite, 2)
+            atualizar_limite_saque(novo_limite)
             for conta in contas:
-                conta.limite = novo_limite
-            print(f'\nValor limite de saque atualizado para R$ {novo_limite:.2f}')
+                conta.limite = LIMITE_SAQUE
+            print(f'\nValor limite de saque atualizado para R$ {LIMITE_SAQUE:.2f}')
             return True
         except ValueError as err:
             tentativas += 1
@@ -666,7 +679,12 @@ def alterar_limite_saque_uma_conta() -> bool:
 
 # Altera o limite de saques diário de todas as contas
 def alterar_limite_saques_diarios_geral() -> bool:
-    global LIMITE_SAQUES_DIARIOS
+
+    @decorador_de_log
+    def atualizar_limite_saques_diarios(novo_limite):
+        global LIMITE_SAQUES_DIARIOS
+        LIMITE_SAQUES_DIARIOS = novo_limite
+
     LIMITE_MINIMO_SAQUES_DIARIOS = 1
     tentativas = 0
     while tentativas < MAX_TENTATIVAS:
@@ -677,7 +695,7 @@ def alterar_limite_saques_diarios_geral() -> bool:
             novo_limite = int(novo_limite)
             if novo_limite < LIMITE_MINIMO_SAQUES_DIARIOS:
                 raise ValueError('Valor menor que 1')
-            LIMITE_SAQUES_DIARIOS = novo_limite
+            atualizar_limite_saques_diarios(novo_limite)
             for conta in contas:
                 if isinstance(conta, ContaCorrente):
                     conta.limite_saques = novo_limite
@@ -729,6 +747,12 @@ def alterar_limite_saques_diarios_uma_conta() -> bool:
 
 # Exclui uma conta desativada
 def excluir_conta_desativada() -> bool:
+    
+    @decorador_de_log
+    def deletar_conta_desativada(index, conta):
+        conta.cliente.contas.remove(conta)
+        del contas[index]
+    
     ha_contas_desativadas = verificar_contas_desativadas()
     if not ha_contas_desativadas:
         print('\nNenhuma conta desativada encontrada. Recurso indisponível.')
@@ -753,8 +777,7 @@ def excluir_conta_desativada() -> bool:
                     break
                 else:
                     # Remove a conta da lista interna do cliente e da lista geral
-                    conta.cliente.contas.remove(conta)
-                    del contas[i]
+                    deletar_conta_desativada(i, conta)
                     print(f'\nConta {numero_conta}, Agencia {agencia} foi excluída com sucesso.')
                     return True
         if not conta_encontrada:    
@@ -801,6 +824,7 @@ def encontrar_cliente_excluir_contas_desativadas() -> bool:
 
 
 # Exclui todas as contas desativadas de um usuario
+@decorador_de_log
 def excluir_todas_contas_desativadas_de_um_usuario(cliente: Cliente) -> None:
     # Percorre a lista de contas ao contrário para que a exclusão de uma conta não afete o índice da próxima conta a ser excluída
     # Exclui as contas desativadas do usuário da lista geral de contas
@@ -815,6 +839,7 @@ def excluir_todas_contas_desativadas_de_um_usuario(cliente: Cliente) -> None:
     print(f'\nTodas as contas desativadas do usuário {cliente.nome} foram excluídas.')
 
 # Exclui todas as contas desativadas
+@decorador_de_log
 def excluir_todas_contas_desativadas() -> bool:
     ha_contas_desativadas = verificar_contas_desativadas()
     if not ha_contas_desativadas:
