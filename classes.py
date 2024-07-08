@@ -1,6 +1,9 @@
+from pathlib import Path
 from datetime import datetime, date
 from abc import ABC, abstractmethod
 import functools
+
+ROOT_PATH = Path(__file__).parent
 
 LIMITE_SAQUE = 500.00
 LIMITE_SAQUES_DIARIOS = 3
@@ -8,9 +11,17 @@ LIMITE_SAQUES_DIARIOS = 3
 def decorador_de_log(func):
     @functools.wraps(func)
     def envelope(*args, **kwargs):
-        func(*args, **kwargs)
-        print(f"\nOperação: {args[0].__class__.__name__}\nHorário: {datetime.now().strftime("%d/%m/%Y, %H:%M:%S")}")
-    
+        data_hora = args[0].data.strftime('%d/%m/%Y %H:%M:%S')
+        nome_func = f'{args[0].__class__.__name__}.{func.__name__}'
+        retorno = func(*args, **kwargs)
+        try:
+            with open(ROOT_PATH / 'log.txt', 'a', encoding='utf-8') as log:
+                log.write(f'{data_hora} - {nome_func}{args} -> {retorno}\n')
+        except IOError as err:
+            print('Erro ao abrir o arquivo.')
+
+        print(f"\nOperação: {args[0].tipo}\nHorário: {data_hora}")
+
     return envelope
 
 class ContaIterador:
@@ -115,6 +126,9 @@ class Conta:
         self._saldo -= valor
         print(f'\nSaque final no valor de R$ {valor:.2f} efetuado com sucesso.')
 
+    def __repr__(self) -> str:
+        return f'Conta: \"Agencia: {self.agencia}, Número: {self.numero}, Cliente: {self.cliente.nome}\"'
+
     def __str__(self) -> str:
         return f'Agencia: {self.agencia} - Número: {self.numero} - Titular: {self.cliente.nome} - Saldo: {self.saldo} - Ativa: {self.ativa}'
 
@@ -160,6 +174,7 @@ class ContaCorrente(Conta):
             return super().sacar(valor)           
         return False
 
+
 class Transacao(ABC):
     @property
     @abstractmethod
@@ -192,6 +207,9 @@ class Deposito(Transacao):
     def registrar(self, conta: Conta):
         conta.historico.adicionar_transacao(self)
 
+    def __repr__(self) -> str:
+        return f'Transação: \"{self.tipo}: {self.valor}\"'
+
 class Saque(Transacao):
     def __init__(self, valor: float, tipo: str = 'Saque') -> None:
         self._valor = valor
@@ -214,6 +232,9 @@ class Saque(Transacao):
     def registrar(self, conta: Conta):
         conta.historico.adicionar_transacao(self) 
 
+    def __repr__(self) -> str:
+        return f'Transação: \"{self.tipo}: {self.valor}\"'
+
 # Saque de encerramento de conta que zera o saldo
 class SaqueFinal(Saque):
     def __init__(self, valor: float) -> None:
@@ -222,6 +243,7 @@ class SaqueFinal(Saque):
     @decorador_de_log
     def registrar(self, conta: Conta):
         conta.historico.adicionar_transacao(self)
+
 
 class Historico:
     def __init__(self) -> None:
