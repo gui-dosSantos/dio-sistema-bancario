@@ -1,5 +1,9 @@
+from pathlib import Path
 from datetime import datetime, date
 from classes import Conta, ContaCorrente, Deposito, Saque, SaqueFinal, Historico, Cliente, PessoaFisica, PessoaJuridica, ContaIterador
+import csv
+
+ROOT_PATH = Path(__file__).parent
 
 usuarios = []
 contas = []
@@ -158,6 +162,111 @@ def saque_final(*, conta: Conta) -> None:
     conta.saque_final()
     saque = SaqueFinal(valor)
     saque.registrar(conta)
+
+def salvar_usuarios() -> None:
+    try:
+        with open(ROOT_PATH / 'clientes.csv', 'w', newline='', encoding='utf-8') as arquivo:
+            registrador = csv.writer(arquivo)
+            registrador.writerow(['tipo', 'id', 'nome', 'endereco', 'data_nascimento', 'ativo'])
+            for usuario in usuarios:
+                if isinstance(usuario, PessoaFisica):
+                    registrador.writerow(['PF', usuario.cpf, usuario.nome, usuario.endereco, usuario.data_nascimento.strftime('%d/%m/%Y'), usuario.ativo])
+                elif isinstance(usuario, PessoaJuridica):
+                    registrador.writerow(['PJ', usuario.cnpj, usuario.nome, usuario.endereco, None, usuario.ativo])
+    except IOError as err:
+        print('Não foi possível abrir o arquivo')
+
+def carregar_usuarios() -> None:
+    try:
+        with open(ROOT_PATH / 'clientes.csv', 'r', newline='', encoding='utf-8') as arquivo:
+            leitor = csv.DictReader(arquivo)
+            for usuario in leitor:
+                if usuario['tipo'] == 'PF':
+                    dia = int(usuario['data_nascimento'][:2])
+                    mes = int(usuario['data_nascimento'][3:5])
+                    ano = int(usuario['data_nascimento'][6:])
+                    novo_usuario = PessoaFisica(endereco=usuario['endereco'], cpf=usuario['id'], nome=usuario['nome'], data_nascimento=date(ano, mes, dia))
+                    usuarios.append(novo_usuario)
+                elif usuario['tipo'] == 'PJ':
+                    novo_usuario = PessoaJuridica(endereco=usuario['endereco'], cnpj=usuario['id'], nome=usuario['nome'])             
+                    usuarios.append(novo_usuario)
+                if usuario['ativo'] == 'False':
+                    novo_usuario.desativar_conta_cliente()
+    except FileNotFoundError as err:
+        print('Arquivo de usuários não encontrado.')
+
+def formatar_historico(historico: Historico) -> str:
+    historico_conta = f''
+    for transacao in historico.transacoes:
+        historico_conta += f'{transacao.data.strftime('%d/%m/%Y %H:%M:%S.%f')},{transacao.tipo},{transacao.valor}|'
+    return historico_conta[:-1]
+
+def salvar_contas():
+    try:
+        with open(ROOT_PATH / 'contas.csv', 'w', newline='', encoding='utf-8') as arquivo:
+            registrador = csv.writer(arquivo)
+            registrador.writerow(['tipo', 'agencia', 'numero', 'cliente', 'saldo', 'limite_transacoes', 'ativa', 'limite', 'limite_saques', 'historico'])
+            for conta in contas:
+                historico_conta = formatar_historico(conta.historico)
+                if isinstance(conta, ContaCorrente):
+                    id_cliente = ''
+                    if isinstance(conta.cliente, PessoaFisica):
+                        id_cliente = conta.cliente.cpf
+                    elif isinstance(conta.cliente, PessoaJuridica):
+                        id_cliente = conta.cliente.cnpj
+                    registrador.writerow([
+                        'CC', 
+                        conta.agencia, 
+                        conta.numero, 
+                        id_cliente, 
+                        conta.saldo, 
+                        conta.limite_transacoes, 
+                        conta.ativa, 
+                        conta.limite, 
+                        conta.limite_saques, 
+                        historico_conta
+                    ])
+    except IOError as err:
+        print('Não foi possível abrir o arquivo')
+
+def carregar_historico(conta: Conta, historico_em_str: str) -> None:
+    lista_transacoes = historico_em_str.split('|')
+    for transacao in lista_transacoes:
+        dados_transacao = transacao.split(',')
+        data_transacao = datetime.strptime(dados_transacao[0], '%d/%m/%Y %H:%M:%S.%f')
+        tipo_transacao = dados_transacao[1]
+        valor_transacao = float(dados_transacao[2])
+        operacao = None
+        if tipo_transacao == 'Saque':
+            operacao = Saque(valor_transacao, data=data_transacao)
+        elif tipo_transacao == 'Depósito':
+            operacao = Deposito(valor_transacao, data=data_transacao)
+        elif tipo_transacao == 'Saque Final':
+            operacao = SaqueFinal(valor_transacao, data=data_transacao)
+        if operacao != None:
+            operacao.registrar(conta)
+            
+
+# TODO: Adaptar a função para utilizar a chave "tipo" caso mais tipos de contas sejam adicionados
+def carregar_contas():
+    try:
+        with open(ROOT_PATH / 'contas.csv', 'r', newline='', encoding='utf-8') as arquivo:
+            leitor = csv.DictReader(arquivo)
+            for conta in leitor:
+                cliente = None
+                if len(conta['cliente']) == 11:
+                    cliente = verificar_cpf(conta['cliente'])
+                elif len(conta['cliente']) == 14:
+                    cliente = verificar_cnpj(conta['cliente'])
+                nova_conta = ContaCorrente(agencia=conta['agencia'], numero=int(conta['numero']), cliente=cliente, saldo=float(conta['saldo']), limite_transacoes=int(conta['limite_transacoes']), limite=float(conta['limite']), limite_saques=int(conta['limite_saques']))
+                if conta['ativa'] == 'False':
+                    nova_conta.desativar_conta()
+                carregar_historico(nova_conta, conta['historico'])
+                contas.append(nova_conta)
+                cliente.contas.append(nova_conta)
+    except FileNotFoundError as err:
+        print('Arquivo de contas não encontrado.')
+
 
 # Lida com a criação de um novo usuário que será posteriormente adicionado a lista de usuários do banco
 def criar_usuario_pf(cpf: str) -> PessoaFisica | None:
@@ -1057,6 +1166,8 @@ def atendimento_pessoa_juridica() -> None:
 
 # Inicio do programa
 def iniciar_atendimento() -> None:
+    carregar_usuarios()
+    carregar_contas()
     MENSAGEM_INICIAL = '''
 Bem vindo(a) ao Banco X!
     
@@ -1090,5 +1201,9 @@ Bem vindo(a) ao Banco X!
     if tentativas >= MAX_TENTATIVAS:
         print('Número máximo de tentativas excedido.')
     print('\nObrigado por utilizar os nossos serviços!\n')
+    salvar_usuarios()
+    salvar_contas()
 
-iniciar_atendimento()
+
+if __name__ == '__main__':
+    iniciar_atendimento()
